@@ -3,37 +3,30 @@
 
 #include <engine/types.h>
 #include <audio/sample.h>
-#include <engine/fs.h>
+#include <filesystem/fs.h>
 #include <SDL/SDL.h>
 
-#define MAX_VOLUME  128;
+#define MAX_VOLUME  128
 #define MIN_VOLUME 0
 #define MAX_CHANNELS 16
 
-
-/*struct Music
+struct Music
 {
-	FILE *fp;
-	int position;
-	bool active;
-	bool loop;
-	int volume;
-	int len;
-	
-};
-*/
-struct Music {
-    FS_FILE* fp;          // archivo WAV
-    bool active;       // ¿se está reproduciendo?
-    bool loop;         // loop sí/no
-    int volume;        // volumen de la música (0-128)
-    u32 len;           // tamaño total del PCM
-    u32 position;      // SOLO si usas lectura por position (aquí no se usa)
+	FS_FILE *fp;				// archivo WAV
+	bool active;				// ¿se está reproduciendo?
+	bool loop;					// loop sí/no
+	int volume;					// volumen de la música (0-128)
+	u32 len;					// tamaño total del PCM
+	u32 position;				// SOLO si usas lectura por position (aquí no 
+								// se usa)
 
-    long dataStart;    // <--- NUEVO: posición donde inicia el chunk "data"
-    u8 buffer[4096];   // <--- NUEVO: buffer para streaming
-    u32 buffered;
+	long dataStart;				// <--- NUEVO: posición donde inicia el chunk 
+								// "data"
+	u8 buffer[4096];			// <--- NUEVO: buffer para streaming
+	u32 buffered;
 };
+
+
 class Cmixer
 {
   public:
@@ -71,7 +64,7 @@ class Cmixer
 	int masterVolume;
 	SDL_AudioSpec spec;
 	static void audioCallback(void *userdata, u8 * stream, int len);
-	
+
 };
 
 #endif

@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 #include <engine/types.h>
-#include <engine/fs.h>
-#include <engine/path_prefix.h>
+#include <filesystem/fs.h>
+#include <filesystem/path_prefix.h>
 
 /* includes por plataforma */
 #if defined(PS2_BUILD)

@@ -1,7 +1,7 @@
 
 #include <string.h>
 #include <audio/mixer.h>
-#include <engine/fs.h>
+#include <filesystem/fs.h>
 
 #define MUSIC_STREAM_SIZE 32768
 
