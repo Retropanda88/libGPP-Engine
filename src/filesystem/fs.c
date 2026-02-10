@@ -34,49 +34,62 @@ int fs_init(void)
 {
 #if defined(PS2_BUILD)
 
-	int ret;
+    int ret;
 
-	/* Inicializar RPC */
-	SifInitRpc(0);
-
-	/* Reset del IOP */
-	/*desconecta ps2link*/ 
-	/*if (SifIopReset(NULL, 0) < 0) {
-		printf("FS: SifIopReset failed\n");
-		return -1;
-	}
-
-	while (!SifIopSync());*/
-
-	/* Re-inicializar RPC tras reset */
-//	SifInitRpc(0);
-	
-
-	/* Inicializar File I/O */
-	ret = fioInit();
-	if (ret < 0) {
-		printf("FS: fioInit failed (%d)\n", ret);
-		return -1;
-	}
-
-	/* Cargar módulos USB */
-	ret = SifLoadModuleBuffer(usbd_irx, usbd_irx_size, 0, NULL);
-	if (ret < 0) {
-		printf("FS: failed to load usbd.irx (%d)\n", ret);
-		return -1;
-	}
-
-	ret = SifLoadModuleBuffer(usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL);
-	if (ret < 0) {
-		printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
-		return -2;
-	}
-
-	printf("FS: initialized successfully\n");
-	return 0;
+#ifdef PS2_DEBUG
+    /* ================================
+     * DEBUG (ps2link)
+     * NO resetear IOP
+     * ================================ */
+    SifInitRpc(0);
 
 #else
-	return 0;
+    /* ================================
+     * RELEASE (app final)
+     * Reset limpio del IOP
+     * ================================ */
+    SifInitRpc(0);
+
+    if (SifIopReset(NULL, 0) < 0) {
+        printf("FS: SifIopReset failed\n");
+        return -1;
+    }
+
+    while (!SifIopSync());
+
+    /* RPC debe reiniciarse después del reset */
+    SifInitRpc(0);
+#endif
+
+    /* ================================
+     * Inicializar File I/O
+     * ================================ */
+    ret = fioInit();
+    if (ret < 0) {
+        printf("FS: fioInit failed (%d)\n", ret);
+        return -1;
+    }
+
+    /* ================================
+     * Cargar módulos USB desde memoria
+     * ================================ */
+    ret = SifLoadModuleBuffer(usbd_irx, usbd_irx_size, 0, NULL);
+    if (ret < 0) {
+        printf("FS: failed to load usbd.irx (%d)\n", ret);
+        return -1;
+    }
+
+    ret = SifLoadModuleBuffer(usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL);
+    if (ret < 0) {
+        printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
+        return -2;
+    }
+
+    printf("FS: initialized successfully\n");
+    return 0;
+
+#else
+    return 0;
 #endif
 }
 
