@@ -146,8 +146,8 @@ void fill_rect(SDL_Surface * dst, int x, int y, int w, int h, u32 c)
 	// fb ya esta declarado
 	u16 color = (u16) c;
 	int pitch = dst->pitch >> 1;
-
-	for (int dy = 0; dy < h; dy++)
+	int dy;
+	for (dy = 0; dy < h; dy++)
 	{
 		u16 *row = fb + (y + dy) * pitch + x;
 		for (int dx = 0; dx < w; dx++)
@@ -158,11 +158,12 @@ void fill_rect(SDL_Surface * dst, int x, int y, int w, int h, u32 c)
 	// fb ya esta declarado
 	u32 color = c;
 	int pitch = dst->pitch >> 2;
-
-	for (int dy = 0; dy < h; dy++)
+  int dy;
+	for (dy = 0; dy < h; dy++)
 	{
 		u32 *row = fb + (y + dy) * pitch + x;
-		for (int dx = 0; dx < w; dx++)
+		int dx;
+		for (dx = 0; dx < w; dx++)
 			row[dx] = color;
 	}
 
@@ -484,7 +485,8 @@ static inline void hline_fast(SDL_Surface * dst, int x0, int x1, int y, u32 colo
 		*row++ = c;
 #else
 	u32 *row = (u32 *) dst->pixels + y * (dst->pitch >> 2) + x0;
-	for (int x = x0; x <= x1; x++)
+	int x;
+	for (x = x0; x <= x1; x++)
 		*row++ = color;
 #endif
 }
@@ -542,7 +544,8 @@ static inline void hline_gradient(SDL_Surface * dst,
 	}
 #else
 	u32 *p = (u32 *) dst->pixels + y * (dst->pitch >> 2) + x0;
-	for (int x = x0; x <= x1; x++)
+	int x;
+	for (x = x0; x <= x1; x++)
 	{
 		*p++ = SDL_MapRGB(dst->format, r >> FP, g >> FP, b >> FP);
 		r += dr;
@@ -605,7 +608,8 @@ void fill_triangle_fast(SDL_Surface * dst,
 	int xr = xl;
 
 	// Parte superior
-	for (int y = y0; y < y1; y++)
+	int y;
+	for (y = y0; y < y1; y++)
 	{
 		hline_fast(dst, xl >> FP, xr >> FP, y, color);
 		xl += dx02;
@@ -615,7 +619,8 @@ void fill_triangle_fast(SDL_Surface * dst,
 	xr = x1 << FP;
 
 	// Parte inferior
-	for (int y = y1; y <= y2; y++)
+	
+	for (y = y1; y <= y2; y++)
 	{
 		hline_fast(dst, xl >> FP, xr >> FP, y, color);
 		xl += dx02;
@@ -685,7 +690,8 @@ void fill_triangle_gradient(SDL_Surface * dst,
 	int bl = b0 << FP, br = bl;
 
 	// Parte superior
-	for (int y = y0; y < y1; y++)
+	int y;
+	for (y = y0; y < y1; y++)
 	{
 		hline_gradient(dst, xl >> FP, xr >> FP, y,
 					   rl >> FP, gl >> FP, bl >> FP, rr >> FP, gr >> FP, br >> FP);
@@ -712,8 +718,8 @@ void fill_triangle_gradient(SDL_Surface * dst,
 		rr = r1 << FP;
 		gr = g1 << FP;
 		br = b1;
-
-		for (int y = y1; y <= y2; y++)
+		int y;
+		for (y = y1; y <= y2; y++)
 		{
 			hline_gradient(dst, xl >> FP, xr >> FP, y,
 						   rl >> FP, gl >> FP, bl >> FP, rr >> FP, gr >> FP, br >> FP);

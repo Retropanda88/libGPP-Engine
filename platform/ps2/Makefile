@@ -39,7 +39,6 @@ EE_INCS += -I$(PS2SDK)/ports/include
 EE_INCS += -I$(PS2DEV)/gsKit/ee/gs/include -I$(PS2DEV)/gsKit/ee/dma/include
 
 EE_CFLAGS   = -O2 -G0 -Wall -DPS2_BUILD  $(EE_INCS)
-EE_CFLAGS += -std=c99
 EE_CXXFLAGS = $(EE_CFLAGS) -fno-exceptions -fno-rtti
 
 # -----------------------------------------------------------

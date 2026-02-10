@@ -11,6 +11,9 @@
 #include <sifrpc.h>
 #include <loadfile.h>
 #include <fileio.h>
+#include <tamtypes.h>
+#include <iopcontrol.h>
+#include <io_common.h>
 
 #elif defined(PSP_BUILD)
 #include <pspiofilemgr.h>
@@ -89,11 +92,11 @@ FS_FILE *fs_open(const char *path, const char *mode)
 	int flags = 0;
 
 	if (!strcmp(mode, "r") || !strcmp(mode, "rb"))
-		flags = FIO_O_RDONLY;
+		flags = O_RDONLY;
 	else if (!strcmp(mode, "w") || !strcmp(mode, "wb"))
-		flags = FIO_O_WRONLY | FIO_O_CREAT | FIO_O_TRUNC;
+		flags = O_WRONLY | O_CREAT | O_TRUNC;
 	else if (!strcmp(mode, "a") || !strcmp(mode, "ab"))
-		flags = FIO_O_WRONLY | FIO_O_CREAT | FIO_O_APPEND;
+		flags = O_WRONLY | O_CREAT | O_APPEND;
 	else
 	{
 		free(f);
@@ -115,7 +118,7 @@ FS_FILE *fs_open(const char *path, const char *mode)
 		return NULL;
 	}
 
-	if (flags & FIO_O_APPEND)
+	if (flags & O_APPEND)
 		f->pos = fioLseek(*fd, 0, SEEK_END);
 	else
 	{
