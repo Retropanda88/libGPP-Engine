@@ -14,6 +14,8 @@
 #include <tamtypes.h>
 #include <iopcontrol.h>
 #include <io_common.h>
+
+//drivers irx 
 #include <usbd.h>
 #include <usbhdfsd.h>
 
@@ -38,15 +40,17 @@ int fs_init(void)
 	SifInitRpc(0);
 
 	/* Reset del IOP */
-	if (SifIopReset(NULL, 0) < 0) {
+	/*desconecta ps2link*/ 
+	/*if (SifIopReset(NULL, 0) < 0) {
 		printf("FS: SifIopReset failed\n");
 		return -1;
 	}
 
-	while (!SifIopSync());
+	while (!SifIopSync());*/
 
 	/* Re-inicializar RPC tras reset */
-	SifInitRpc(0);
+//	SifInitRpc(0);
+	
 
 	/* Inicializar File I/O */
 	ret = fioInit();
