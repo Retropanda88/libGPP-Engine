@@ -14,6 +14,9 @@
 #include <tamtypes.h>
 #include <iopcontrol.h>
 #include <io_common.h>
+#include <usbd.h>
+#include <usbhdfsd.h>
+
 
 #elif defined(PSP_BUILD)
 #include <pspiofilemgr.h>
@@ -53,13 +56,13 @@ int fs_init(void)
 	}
 
 	/* Cargar módulos USB */
-	ret = SifLoadModule("host:/SYS-CONF/usbd.irx", 0, NULL);
+	ret = SifLoadModuleBuffer(usbd_irx, usbd_irx_size, 0, NULL);
 	if (ret < 0) {
 		printf("FS: failed to load usbd.irx (%d)\n", ret);
 		return -1;
 	}
 
-	ret = SifLoadModule("host:/SYS-CONF/usbhdfsd.irx", 0, NULL);
+	ret = SifLoadModuleBuffer(usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL);
 	if (ret < 0) {
 		printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
 		return -2;
