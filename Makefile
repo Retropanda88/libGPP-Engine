@@ -37,6 +37,16 @@ ps2:
 	@echo "=== Compilando libGPP-Engine para PS2 ==="
 	$(MAKE) -C platform/ps2
 
+ps2-run:
+	@echo "=== Ejecutando PS2 ==="
+	$(MAKE) -C platform/ps2 run
+
+ps2-reset:
+	@echo "=== Reset PS2 ==="
+	$(MAKE) -C platform/ps2 reset
+
+
+
 # PSP
 psp:
 	@echo "=== Compilando libGPP-Engine para PSP ==="

@@ -104,5 +104,8 @@ rebuild: clean all
 run: $(TARGET)
 	ps2client execee host:$(TARGET)
 
+reset:
+	ps2client reset
+
 emu: $(TARGET)
 	pcsx2 --elf $(TARGET)

@@ -15,5 +15,7 @@
 #include <audio/mixer.h>
 #include <audio/sample.h>
 
+#include <filesystem/fs.h>
+
 
 #endif // ENGINE_H_

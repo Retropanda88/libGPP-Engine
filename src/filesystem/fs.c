@@ -29,26 +29,50 @@ int fs_init(void)
 {
 #if defined(PS2_BUILD)
 
+	int ret;
+
+	/* Inicializar RPC */
 	SifInitRpc(0);
 
-	/* reset del IOP */
-	SifIopReset(NULL, 0);
+	/* Reset del IOP */
+	if (SifIopReset(NULL, 0) < 0) {
+		printf("FS: SifIopReset failed\n");
+		return -1;
+	}
+
 	while (!SifIopSync());
 
+	/* Re-inicializar RPC tras reset */
 	SifInitRpc(0);
-	fioInit();
 
-	/* cargar drivers USB desde Memory Card */
-	SifLoadModule("mc0:/SYS/usbd.irx", 0, NULL);
-	SifLoadModule("mc0:/SYS/usbhdfsd.irx", 0, NULL);
+	/* Inicializar File I/O */
+	ret = fioInit();
+	if (ret < 0) {
+		printf("FS: fioInit failed (%d)\n", ret);
+		return -1;
+	}
 
+	/* Cargar módulos USB */
+	ret = SifLoadModule("host:/SYS-CONF/usbd.irx", 0, NULL);
+	if (ret < 0) {
+		printf("FS: failed to load usbd.irx (%d)\n", ret);
+		return -1;
+	}
+
+	ret = SifLoadModule("host:/SYS-CONF/usbhdfsd.irx", 0, NULL);
+	if (ret < 0) {
+		printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
+		return -2;
+	}
+
+	printf("FS: initialized successfully\n");
 	return 0;
 
 #else
-	/* otras plataformas no requieren init */
 	return 0;
 #endif
 }
+
 
 /* ---------------------------------------------------- */
 /* construcción de ruta completa */
