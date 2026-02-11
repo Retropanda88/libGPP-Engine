@@ -1,7 +1,7 @@
 File loaded from: music.wav
 RIFF/WAVE OK
 FMT: format=1 channels=2 rate=24000 bits=16
-DATA: start=322 size=12726240
-dataStart=322 len=12726240
-audio bytes: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+DATA: start=184 size=22937568
+dataStart=184 len=22937568
+audio bytes: 66 FF 66 FF EA FF EA FF D7 FF D7 FF 6D 00 6D 00 
 loadMusic OK

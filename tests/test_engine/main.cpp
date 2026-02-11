@@ -12,8 +12,7 @@
    Supported Platforms: - Android, PSP, PS2, GameCube
    ============================================================================ */
 
-#include <engine/engine.h>
-#include <kernel.h>
+#include <engine/Engine.h>
 
 
 #include "test0.h"
@@ -28,8 +27,6 @@
 #include "test9.h"
 #include "test10.h"
 
-//#include <filesystem/fs.h>
-#include <audio/mixer.h>
 
 #define MAX_LINES 6
 
@@ -46,9 +43,6 @@ static Cmixer gMixer;
 
 int audio_init(void)
 {
-    /* inicializar FS primero */
-    fs_init();
-
     /* inicializar mixer */
     gMixer.init(22050, 2, 512, 128);
 
@@ -74,8 +68,7 @@ void drawMenu();
 
 int main(int argc, char **argv)
 {
-    int main_id = GetThreadId();
-    ChangeThreadPriority(main_id, 72);
+
 
     // Initialize engine core
     if (Init_Sistem("libGPP-Engine Test Suite v01") != 0)
@@ -85,8 +78,6 @@ int main(int argc, char **argv)
     if (Set_Video() != 0)
         return 1;
 
-    //solp ps2
-    //fs_init();
     if(audio_init()<0)
         return 1;
 
@@ -137,7 +128,7 @@ void drawMenu()
         print(x, y + i * line_height, list[i], white);
         
         
-    print(80, 15, "Demo libEngine-Gpp", white);
+    print(80, 15, "Demo libGPP-Engine", white);
 
     Render();
     while (1)

@@ -1,3 +1,4 @@
+#if defined(PS2_BUILD)
 #include <filesystem/usbhdfsd.h>
 
 const u8 usbhdfsd_irx[] __attribute__((aligned(64))) = {
@@ -4269,3 +4270,4 @@ const u8 usbhdfsd_irx[] __attribute__((aligned(64))) = {
 };
 
 const u32 usbhdfsd_irx_size = 51177;
+#endif

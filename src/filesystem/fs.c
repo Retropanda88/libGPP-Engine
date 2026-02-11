@@ -16,7 +16,7 @@
 #include <io_common.h>
 #include <stdio.h>
 
-//drivers irx 
+// drivers irx 
 #include <filesystem/usbd.h>
 #include <filesystem/usbhdfsd.h>
 
@@ -35,62 +35,64 @@ int fs_init(void)
 {
 #if defined(PS2_BUILD)
 
-    int ret;
+	int ret;
 
 #ifdef PS2_DEBUG
-    /* ================================
-     * DEBUG (ps2link)
-     * NO resetear IOP
-     * ================================ */
-    SifInitRpc(0);
+	/* ================================ DEBUG (ps2link) NO resetear IOP
+	   ================================ */
+	SifInitRpc(0);
 
 #else
-    /* ================================
-     * RELEASE (app final)
-     * Reset limpio del IOP
-     * ================================ */
-    SifInitRpc(0);
+	/* ================================ RELEASE (app final) Reset limpio del
+	   IOP ================================ */
+	SifInitRpc(0);
 
-    if (SifIopReset(NULL, 0) < 0) {
-        printf("FS: SifIopReset failed\n");
-        return -1;
-    }
+	if (SifIopReset(NULL, 0) < 0)
+	{
+		printf("FS: SifIopReset failed\n");
+		return -1;
+	}
 
-    while (!SifIopSync());
+	while (!SifIopSync());
 
-    /* RPC debe reiniciarse después del reset */
-    SifInitRpc(0);
+	/* RPC debe reiniciarse después del reset */
+	SifInitRpc(0);
 #endif
 
-    /* ================================
-     * Inicializar File I/O
-     * ================================ */
-    ret = fioInit();
-    if (ret < 0) {
-        printf("FS: fioInit failed (%d)\n", ret);
-        return -1;
-    }
-
-    /* ================================
-     * Cargar módulos USB desde memoria
-     * ================================ */
-	SifExecModuleBuffer((void*)usbd_irx, usbd_irx_size, 0, NULL, &ret);
-	if (ret < 0) {
-	    printf("FS: failed to load usbd.irx (%d)\n", ret);
-	    return -1;
+	/* ================================ Inicializar File I/O
+	   ================================ */
+	ret = fioInit();
+	if (ret < 0)
+	{
+		printf("FS: fioInit failed (%d)\n", ret);
+		return -1;
 	}
 
-	SifExecModuleBuffer((void*)usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL, &ret);
-	if (ret < 0) {
-	    printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
-	    return -2;
+	/* ================================ Cargar módulos USB desde memoria
+	   ================================ */
+	SifExecModuleBuffer((void *)usbd_irx, usbd_irx_size, 0, NULL, &ret);
+	if (ret < 0)
+	{
+		printf("FS: failed to load usbd.irx (%d)\n", ret);
+		return -1;
 	}
 
-    printf("FS: initialized successfully\n");
-    return 0;
+	SifExecModuleBuffer((void *)usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL, &ret);
+	if (ret < 0)
+	{
+		printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
+		return -2;
+	}
+
+#if !defined(PS2_DEBUG)
+	DelayThread(100 * 1000);
+#endif
+
+	printf("FS: initialized successfully\n");
+	return 0;
 
 #else
-    return 0;
+	return 0;
 #endif
 }
 
@@ -286,7 +288,7 @@ FS_FILE *fs_open(const char *path, const char *mode)
 /* lectura estilo fread */
 /* ---------------------------------------------------- */
 
-int fs_read(void *ptr, u32 size, u32 count, FS_FILE *stream)
+int fs_read(void *ptr, u32 size, u32 count, FS_FILE * stream)
 {
 	if (!stream || !ptr || size == 0 || count == 0)
 		return 0;
@@ -325,19 +327,89 @@ int fs_read(void *ptr, u32 size, u32 count, FS_FILE *stream)
 
 #else /* PC / ANDROID */
 
-	FILE *fp = (FILE *)stream->handle;
+	FILE *fp = (FILE *) stream->handle;
 	size_t r = fread(ptr, size, count, fp);
 
-	stream->pos = (u32)ftell(fp);
+	stream->pos = (u32) ftell(fp);
 	return (int)r;
 
 #endif
 }
+
+/* ---------------------------------------------------- */
+/* wsceitura estilo write */
+/* ---------------------------------------------------- */
+
+int fs_write(const void *ptr, u32 size, u32 count, FS_FILE *stream)
+{
+	if (!stream || !stream->handle || !ptr || size == 0 || count == 0)
+		return 0;
+
+	u32 bytes = size * count;
+
+#if defined(PS2_BUILD)
+
+	int fd = *(int *)stream->handle;
+	int r = fioWrite(fd, ptr, bytes);
+	if (r <= 0)
+		return 0;
+
+	stream->pos += r;
+
+	/* actualizar tamaño si crece */
+	if (stream->pos > stream->size)
+		stream->size = stream->pos;
+
+	return r / size;
+
+#elif defined(PSP_BUILD)
+
+	int fd = *(int *)stream->handle;
+	int r = sceIoWrite(fd, ptr, bytes);
+	if (r <= 0)
+		return 0;
+
+	stream->pos += r;
+
+	if (stream->pos > stream->size)
+		stream->size = stream->pos;
+
+	return r / size;
+
+#elif defined(GC_BUILD)
+
+	int fd = *(int *)stream->handle;
+	int r = write(fd, ptr, bytes);
+	if (r <= 0)
+		return 0;
+
+	stream->pos += r;
+
+	if (stream->pos > stream->size)
+		stream->size = stream->pos;
+
+	return r / size;
+
+#else /* PC / ANDROID */
+
+	FILE *fp = (FILE *)stream->handle;
+	size_t r = fwrite(ptr, size, count, fp);
+
+	stream->pos = (u32)ftell(fp);
+
+	if (stream->pos > stream->size)
+		stream->size = stream->pos;
+
+	return (int)r;
+
+#endif
+}
+
 /* ---------------------------------------------------- */
 /* mover cursor estilo fseek */
 /* ---------------------------------------------------- */
 
-int fs_seek(FS_FILE *stream, s32 offset, int origin)
+int fs_seek(FS_FILE * stream, s32 offset, int origin)
 {
 	if (!stream || !stream->handle)
 		return -1;
@@ -368,10 +440,10 @@ int fs_seek(FS_FILE *stream, s32 offset, int origin)
 
 #else /* ANDROID + PC */
 
-	FILE *fp = (FILE *)stream->handle;
+	FILE *fp = (FILE *) stream->handle;
 	int r = fseek(fp, offset, origin);
 	if (r == 0)
-		stream->pos = (u32)ftell(fp);
+		stream->pos = (u32) ftell(fp);
 	return r;
 
 #endif
@@ -392,14 +464,15 @@ u32 fs_tell(FS_FILE * stream)
 /* cerrar archivo */
 /* ---------------------------------------------------- */
 
-void fs_close(FS_FILE *stream)
+void fs_close(FS_FILE * stream)
 {
 	if (!stream)
 		return;
 
 #if defined(PS2_BUILD)
 
-	if (stream->handle) {
+	if (stream->handle)
+	{
 		int fd = *(int *)stream->handle;
 		fioClose(fd);
 		free(stream->handle);
@@ -407,7 +480,8 @@ void fs_close(FS_FILE *stream)
 
 #elif defined(PSP_BUILD)
 
-	if (stream->handle) {
+	if (stream->handle)
+	{
 		int fd = *(int *)stream->handle;
 		sceIoClose(fd);
 		free(stream->handle);
@@ -415,7 +489,8 @@ void fs_close(FS_FILE *stream)
 
 #elif defined(GC_BUILD)
 
-	if (stream->handle) {
+	if (stream->handle)
+	{
 		int fd = *(int *)stream->handle;
 		close(fd);
 		free(stream->handle);
@@ -424,7 +499,7 @@ void fs_close(FS_FILE *stream)
 #else /* PC / ANDROID */
 
 	if (stream->handle)
-		fclose((FILE *)stream->handle);
+		fclose((FILE *) stream->handle);
 
 #endif
 

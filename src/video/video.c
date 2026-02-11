@@ -15,7 +15,13 @@
 #include <string.h>
 #include <engine/font.h>
 
+#ifdef PS2_BUILD
 #include <engine/psp_sdk.h>
+#endif
+
+#ifdef PS2_BUILD
+#include <kernel.h>
+#endif
 
 // framebuffer pointer
 SDL_Surface *vram = NULL;
@@ -70,6 +76,14 @@ int Init_Sistem(const char *msg)
 	// Inicialización específica para PSP
 #ifdef PSP_BUILD
 	PSP_SetupCallbacks();
+#endif
+
+	// Inicialización específica para PS2 en audio
+#ifdef PS2_BUILD
+	int main_id = GetThreadId();
+	ChangeThreadPriority(main_id, 72);
+	/* inicializar FS primero */
+	fs_init();
 #endif
 
 	// Inicializa SDL con video y temporizador
