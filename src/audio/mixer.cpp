@@ -236,7 +236,7 @@ static u32 read_u32_le(FS_FILE * f)
 
 bool Cmixer::loadMusic(const char *filename, bool loop)
 {
-	FILE *f = fopen("debug.txt", "w");
+	FILE *f = fopen("mass:/debug.txt", "w");
 	if (!f)
 		return false;
 

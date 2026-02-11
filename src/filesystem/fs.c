@@ -14,10 +14,11 @@
 #include <tamtypes.h>
 #include <iopcontrol.h>
 #include <io_common.h>
+#include <stdio.h>
 
 //drivers irx 
-#include <usbd.h>
-#include <usbhdfsd.h>
+#include <filesystem/usbd.h>
+#include <filesystem/usbhdfsd.h>
 
 
 #elif defined(PSP_BUILD)
@@ -73,17 +74,17 @@ int fs_init(void)
     /* ================================
      * Cargar módulos USB desde memoria
      * ================================ */
-    ret = SifLoadModuleBuffer(usbd_irx, usbd_irx_size, 0, NULL);
-    if (ret < 0) {
-        printf("FS: failed to load usbd.irx (%d)\n", ret);
-        return -1;
-    }
+	SifExecModuleBuffer((void*)usbd_irx, usbd_irx_size, 0, NULL, &ret);
+	if (ret < 0) {
+	    printf("FS: failed to load usbd.irx (%d)\n", ret);
+	    return -1;
+	}
 
-    ret = SifLoadModuleBuffer(usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL);
-    if (ret < 0) {
-        printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
-        return -2;
-    }
+	SifExecModuleBuffer((void*)usbhdfsd_irx, usbhdfsd_irx_size, 0, NULL, &ret);
+	if (ret < 0) {
+	    printf("FS: failed to load usbhdfsd.irx (%d)\n", ret);
+	    return -2;
+	}
 
     printf("FS: initialized successfully\n");
     return 0;
