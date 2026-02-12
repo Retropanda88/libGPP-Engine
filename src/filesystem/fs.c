@@ -5,6 +5,8 @@
 #include <filesystem/fs.h>
 #include <filesystem/path_prefix.h>
 
+
+
 /* includes por plataforma */
 #if defined(PS2_BUILD)
 #include <kernel.h>
@@ -26,6 +28,8 @@
 
 #elif defined(GC_BUILD) || defined(PC_BUILD) || defined(ANDROID_BUILD)
 #include <stdio.h>
+//#include <gccore.h>
+//#include <fat.h>
 #endif
 
 /* ---------------------------------------------------- */

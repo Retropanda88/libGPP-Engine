@@ -15,7 +15,7 @@ int main(int argc, char **argv)
 
     if (Set_Video() < 0)
         return 1;
-
+    
     int result_ok = 1;
     int seek_ok = 0;
     int big_ok = 0;
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
     /* 3️⃣ Archivo grande 1MB    */
     /* ========================= */
 
-    const int big_size = 1024 * 1024*5;
+    const int big_size = 1024 * 1024;
     static unsigned char big_buffer[4096];
 
     for (int i = 0; i < 4096; i++)

@@ -15,7 +15,7 @@
 #include <string.h>
 #include <engine/font.h>
 
-#ifdef PS2_BUILD
+#ifdef PSP_BUILD
 #include <engine/psp_sdk.h>
 #endif
 
@@ -83,7 +83,7 @@ int Init_Sistem(const char *msg)
 	int main_id = GetThreadId();
 	ChangeThreadPriority(main_id, 72);
 	/* inicializar FS primero */
-	fs_init();
+	//fs_init();
 #endif
 
 	// Inicializa SDL con video y temporizador
@@ -99,6 +99,12 @@ int Init_Sistem(const char *msg)
 
 	// Tamaño de fuente por defecto
 	fontsize(8, 8);
+
+#ifdef PS2_BUILD
+
+	/* inicializar FS primero */
+	fs_init();
+#endif
 
 	return 0;
 }

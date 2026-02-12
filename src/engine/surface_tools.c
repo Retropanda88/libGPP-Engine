@@ -150,7 +150,8 @@ void fill_rect(SDL_Surface * dst, int x, int y, int w, int h, u32 c)
 	for (dy = 0; dy < h; dy++)
 	{
 		u16 *row = fb + (y + dy) * pitch + x;
-		for (int dx = 0; dx < w; dx++)
+		int dx;
+		for (dx = 0; dx < w; dx++)
 			row[dx] = color;
 	}
 
@@ -481,7 +482,8 @@ static inline void hline_fast(SDL_Surface * dst, int x0, int x1, int y, u32 colo
 #if defined(PSP_BUILD)
 	u16 *row = (u16 *) dst->pixels + y * (dst->pitch >> 1) + x0;
 	u16 c = (u16) color;
-	for (int x = x0; x <= x1; x++)
+	int x;
+	for (x = x0; x <= x1; x++)
 		*row++ = c;
 #else
 	u32 *row = (u32 *) dst->pixels + y * (dst->pitch >> 2) + x0;
@@ -535,7 +537,8 @@ static inline void hline_gradient(SDL_Surface * dst,
 
 #if defined(PSP_BUILD)
 	u16 *p = (u16 *) dst->pixels + y * (dst->pitch >> 1) + x0;
-	for (int x = x0; x <= x1; x++)
+	int x;
+	for (x = x0; x <= x1; x++)
 	{
 		*p++ = ((r >> FP) << 11) | ((g >> FP) << 5) | (b >> FP);
 		r += dr;

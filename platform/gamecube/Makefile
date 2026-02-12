@@ -38,7 +38,7 @@ LD  := $(DEVKITPPC)/bin/powerpc-eabi-gcc
 GC_INCS = -I$(INC_DIR) -I$(SRC_DIR) -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/ppc/include
 
 CFLAGS   = -O2 -mcpu=750 -meabi -mhard-float -Wall -DGEKKO -D__cube__ -DGC_BUILD $(GC_INCS)
-CFLAGS += -std=c99
+CFLAGS += 
 CXXFLAGS = $(CFLAGS) -fno-rtti -fno-exceptions
 
 GC_LDFLAGS = -L$(DEVKITPRO)/libogc/lib/cube -L$(DEVKITPRO)/portlibs/ppc/lib -Wl,-Map,$(BIN_DIR)/test_gc.map

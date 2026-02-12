@@ -13,7 +13,7 @@ RM       ?= rm -f
 
 # Flags
 CFLAGS   := -O3 -G0 -Wall -DPSP_BUILD -I$(PSPSDK)/include -I../../include -I../../src
-CFLAGS += -std=c99
+CFLAGS +=
 CXXFLAGS := $(CFLAGS) -fno-exceptions -fno-rtti
 LDFLAGS  := -L$(PSPSDK)/lib
 
