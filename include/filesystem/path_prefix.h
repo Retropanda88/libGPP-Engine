@@ -13,8 +13,8 @@
 
 #elif defined(GC_BUILD)
 
-#define PREFIX       "sd:/"
-#define PREFIX_SAVE  "sd:/"
+#define PREFIX       ""
+#define PREFIX_SAVE  ""
 
 #elif defined(ANDROID_BUILD)
 
