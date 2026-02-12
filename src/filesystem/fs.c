@@ -224,45 +224,28 @@ FS_FILE *fs_open(const char *path, const char *mode)
 
 #elif defined(GC_BUILD)
 
-	int flags = 0;
+    FILE *fp = fopen(full_path, mode);
+    if (!fp)
+    {
+        free(f);
+        return NULL;
+    }
 
-	if (!strcmp(mode, "r") || !strcmp(mode, "rb"))
-		flags = O_RDONLY;
-	else if (!strcmp(mode, "w") || !strcmp(mode, "wb"))
-		flags = O_WRONLY | O_CREAT | O_TRUNC;
-	else if (!strcmp(mode, "a") || !strcmp(mode, "ab"))
-		flags = O_WRONLY | O_CREAT | O_APPEND;
-	else
-	{
-		free(f);
-		return NULL;
-	}
+    f->handle = (void*)fp;
+    f->pos = 0;
 
-	int *fd = (int *)malloc(sizeof(int));
-	if (!fd)
-	{
-		free(f);
-		return NULL;
-	}
+    /* Obtener tamaño del archivo */
+    fseek(fp, 0, SEEK_END);
+    f->size = (u32)ftell(fp);
 
-	*fd = open(full_path, flags, 0666);
-	if (*fd < 0)
-	{
-		free(fd);
-		free(f);
-		return NULL;
-	}
-
-	if (flags & O_APPEND)
-		f->pos = lseek(*fd, 0, SEEK_END);
-	else
-	{
-		int end = lseek(*fd, 0, SEEK_END);
-		lseek(*fd, 0, SEEK_SET);
-		f->size = (u32) end;
-	}
-
-	f->handle = fd;
+    if (mode[0] == 'a')
+    {
+        f->pos = f->size;
+    }
+    else
+    {
+        fseek(fp, 0, SEEK_SET);
+    }
 
 #else /* PC / ANDROID */
 
@@ -321,13 +304,14 @@ int fs_read(void *ptr, u32 size, u32 count, FS_FILE * stream)
 
 #elif defined(GC_BUILD)
 
-	int fd = *(int *)stream->handle;
-	int r = read(fd, ptr, bytes);
-	if (r <= 0)
-		return 0;
+    FILE *fp = (FILE *)stream->handle;
 
-	stream->pos += r;
-	return r / size;
+    size_t r = fread(ptr, size, count, fp);
+    if (r == 0)
+        return 0;
+
+    stream->pos = (u32)ftell(fp);
+    return (int)r;
 
 #else /* PC / ANDROID */
 
@@ -382,17 +366,18 @@ int fs_write(const void *ptr, u32 size, u32 count, FS_FILE *stream)
 
 #elif defined(GC_BUILD)
 
-	int fd = *(int *)stream->handle;
-	int r = write(fd, ptr, bytes);
-	if (r <= 0)
-		return 0;
+    FILE *fp = (FILE *)stream->handle;
 
-	stream->pos += r;
+    size_t r = fwrite(ptr, size, count, fp);
+    if (r == 0)
+        return 0;
 
-	if (stream->pos > stream->size)
-		stream->size = stream->pos;
+    stream->pos = (u32)ftell(fp);
 
-	return r / size;
+    if (stream->pos > stream->size)
+        stream->size = stream->pos;
+
+    return (int)r;
 
 #else /* PC / ANDROID */
 
@@ -436,11 +421,13 @@ int fs_seek(FS_FILE * stream, s32 offset, int origin)
 
 #elif defined(GC_BUILD)
 
-	int fd = *(int *)stream->handle;
-	int r = lseek(fd, offset, origin);
-	if (r >= 0)
-		stream->pos = r;
-	return r;
+    FILE *fp = (FILE *)stream->handle;
+
+    int r = fseek(fp, offset, origin);
+    if (r == 0)
+        stream->pos = (u32)ftell(fp);
+
+    return r;
 
 #else /* ANDROID + PC */
 
@@ -493,13 +480,10 @@ void fs_close(FS_FILE * stream)
 
 #elif defined(GC_BUILD)
 
-	if (stream->handle)
-	{
-		int fd = *(int *)stream->handle;
-		close(fd);
-		free(stream->handle);
-	}
-
+    if (stream->handle)
+    {
+        fclose((FILE *)stream->handle);
+    }
 #else /* PC / ANDROID */
 
 	if (stream->handle)
