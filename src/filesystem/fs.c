@@ -28,8 +28,6 @@
 
 #elif defined(GC_BUILD) || defined(PC_BUILD) || defined(ANDROID_BUILD)
 #include <stdio.h>
-//#include <gccore.h>
-//#include <fat.h>
 #endif
 
 /* ---------------------------------------------------- */
