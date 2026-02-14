@@ -1,0 +1,53 @@
+# =====================
+# Build directories
+# =====================
+build/
+bin/
+dist/
+
+# Android build
+platform/android/build/
+
+# =====================
+# Compiled objects
+# =====================
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+*.elf
+*.bin
+*.prx
+
+# =====================
+# PSP / PS2 temporary
+# =====================
+*.pbp
+*.iso
+
+# =====================
+# Logs
+# =====================
+*.log
+
+# =====================
+# Swap files (Vim)
+# =====================
+*.swp
+*.swo
+
+# =====================
+# OS files
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# IDE files
+# =====================
+.vscode/
+.idea/
+*.project
+*.cproject
