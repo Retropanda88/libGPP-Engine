@@ -26,10 +26,13 @@ extern "C"
 	/* API estilo stdio */
 	FS_FILE *fs_open(const char *path, const char *mode);
 	int fs_read(void *ptr, u32 size, u32 count, FS_FILE * stream);
-	int fs_write(const void *ptr, u32 size, u32 count, FS_FILE *stream);
+	int fs_write(const void *ptr, u32 size, u32 count, FS_FILE * stream);
 	int fs_seek(FS_FILE * stream, s32 offset, int origin);
 	u32 fs_tell(FS_FILE * stream);
 	void fs_close(FS_FILE * stream);
+	
+	/*directorios */
+	
 
 #ifdef __cplusplus
 }

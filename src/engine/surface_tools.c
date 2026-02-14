@@ -927,9 +927,12 @@ void fill_radial_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 			int g = (g1 * (255 - t) + g2 * t) >> 8;
 			int b = (b1 * (255 - t) + b2 * t) >> 8;
 
-			Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
+			//Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
 
-			pixels[y * pitch + x] = c;
+			//pixels[y * pitch + x] = c;
+			Uint32 mapped = SDL_MapRGB(surface->format, r, g, b);
+pixels[y * pitch + x] = (Uint16)mapped;
+
 		}
 	}
 
