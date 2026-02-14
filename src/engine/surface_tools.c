@@ -763,7 +763,7 @@ void fill_horizontal_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color
 	SDL_GetRGB(color2, surface->format, &r2, &g2, &b2);
 
 #if defined(PSP_BUILD)
-	/* ================= PSP (RGB565) ================= */
+	/* ================= PSP (BGR565) ================= */
 
 	Uint16 *pixels = (Uint16 *) surface->pixels;
 	int pitch = surface->pitch >> 1;	// /2
@@ -775,10 +775,11 @@ void fill_horizontal_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color
 		int g = g1 + ((g2 - g1) * x) / (w - 1);
 		int b = b1 + ((b2 - b1) * x) / (w - 1);
 
-		Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
+		//Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
+		Uint32 c = SDL_MapRGB(surface->format, r, g, b);
 		int y;
 		for (y = 0; y < h; y++)
-			pixels[y * pitch + x] = c;
+			pixels[y * pitch + x] = (Uint16)c;
 	}
 
 #else
@@ -826,7 +827,7 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 	SDL_GetRGB(color2, surface->format, &r2, &g2, &b2);
 
 #if defined(PSP_BUILD)
-	/* ================= PSP (RGB565) ================= */
+	/* ================= PSP (BGR565) ================= */
 
 	Uint16 *pixels = (Uint16 *) surface->pixels;
 	int pitch = surface->pitch >> 1;	// /2
@@ -839,12 +840,13 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 		int g = (g1 * (255 - t) + g2 * t) >> 8;
 		int b = (b1 * (255 - t) + b2 * t) >> 8;
 
-		Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
+		//Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
+		Uint32 c = SDL_MapRGB(surface->format, r, g, b);
 
 		Uint16 *row = pixels + y * pitch;
 		int x;
 		for (x = 0; x < w; x++)
-			row[x] = c;
+			row[x] = (Uint16)c;
 	}
 
 #else
@@ -906,7 +908,7 @@ void fill_radial_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 		maxd2 = 1;
 
 #if defined(PSP_BUILD)
-	/* ================= PSP (RGB565) ================= */
+	/* ================= PSP (BGR565) ================= */
 
 	Uint16 *pixels = (Uint16 *) surface->pixels;
 	int pitch = surface->pitch >> 1;	// /2
@@ -927,11 +929,16 @@ void fill_radial_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 			int g = (g1 * (255 - t) + g2 * t) >> 8;
 			int b = (b1 * (255 - t) + b2 * t) >> 8;
 
+<<<<<<< HEAD
+			Uint32 c = SDL_MapRGB(surface->format, r, g, b);
+			pixels[y * pitch + x] = (Uint16)c;
+=======
 			//Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
 
 			//pixels[y * pitch + x] = c;
 			Uint32 mapped = SDL_MapRGB(surface->format, r, g, b);
 pixels[y * pitch + x] = (Uint16)mapped;
+>>>>>>> 89e15e57bb8eccc6fc53ecc78b7c7bad9cfbad57
 
 		}
 	}
