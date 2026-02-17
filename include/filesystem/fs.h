@@ -55,6 +55,8 @@ extern "C"
 	int fs_rmdir(const char *path);
 	int fs_exists(const char *path);
 	int fs_isdir(const char *path);
+	
+	int fs_remove(const char *path);
 
 	/* API estilo dirent */
 	int fs_opendir(FS_DIR * dir, const char *path);

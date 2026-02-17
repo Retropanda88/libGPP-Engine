@@ -160,7 +160,7 @@ void drawMenu()
 	else
 		print(80, 140, "opendir FAIL", white);
 
-	//FS_DIR dir;
+	// FS_DIR dir;
 	FS_DIRENT ent;
 
 	int y = 160;
@@ -180,6 +180,17 @@ void drawMenu()
 		print(20, y, "opendir FAIL", white);
 	}
 
+	FS_FILE *f = fs_open("test.txt", "wb");
+	if (f)
+	{
+		fs_close(f);
+		print(20, 200, "archivo creado", white);
+	}
+
+	if (fs_remove("test.txt") == 0)
+		print(20, 220, "archivo eliminado", white);
+	else
+		print(20, 220, "error eliminando", white); 
 
 
 	Render();

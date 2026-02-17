@@ -1,3 +1,5 @@
+
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -798,6 +800,32 @@ int fs_closedir(FS_DIR *dir)
 
     DIR *d = (DIR*)dir->handle;
     return closedir(d);
+
+#else
+
+    return -1;
+
+#endif
+}
+
+int fs_remove(const char *path)
+{
+    const char *real = fs_make_path(path);
+
+    if (!real)
+        return -1;
+
+#if defined(PS2_BUILD)
+
+    return fioRemove(real);
+
+#elif defined(PSP_BUILD)
+
+    return sceIoRemove(real);
+
+#elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
+
+    return remove(real);
 
 #else
 
