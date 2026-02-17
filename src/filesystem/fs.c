@@ -28,6 +28,9 @@
 
 #elif defined(GC_BUILD) || defined(PC_BUILD) || defined(ANDROID_BUILD)
 #include <stdio.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #endif
 
 /* ---------------------------------------------------- */
@@ -104,17 +107,16 @@ int fs_init(void)
 /* ---------------------------------------------------- */
 const char *fs_make_path(const char *relative)
 {
-	static char full_path[256];
+    static char full_path[256];
 
-	if (!relative)
-		return 0;
+    if (!relative)
+        return NULL;
 
-	strcpy(full_path, PREFIX);
-	strcat(full_path, relative);
+    snprintf(full_path, sizeof(full_path),
+             "%s%s", PREFIX, relative);
 
-	return full_path;
+    return full_path;
 }
-
 /* ---------------------------------------------------- */
 /* abrir archivo */
 /* ---------------------------------------------------- */
@@ -490,4 +492,170 @@ void fs_close(FS_FILE * stream)
 #endif
 
 	free(stream);
+}
+
+/********************/
+
+int fs_mkdir(const char *path)
+{
+    const char *real = fs_make_path(path);
+
+    if (!real)
+        return -1;
+
+#if defined(PS2_BUILD)
+
+    int r = fioMkdir(real);
+    return (r >= 0) ? 0 : -1;
+
+#elif defined(PSP_BUILD)
+
+    int r = sceIoMkdir(real, 0777);
+    return (r >= 0) ? 0 : -1;
+
+#elif defined(GC_BUILD)
+
+    /* GameCube usa libc tipo POSIX */
+    return mkdir(real, 0755);
+
+#elif defined(ANDROID_BUILD)
+
+    return mkdir(real, 0755);
+
+#elif defined(PC_BUILD)
+
+    #if defined(_WIN32)
+        return _mkdir(real);
+    #else
+        return mkdir(real, 0755);
+    #endif
+
+#else
+
+    return -1;
+
+#endif
+}
+
+
+int fs_rmdir(const char *path)
+{
+    const char *real = fs_make_path(path);
+
+    if (!real)
+        return -1;
+
+#if defined(PS2_BUILD)
+
+    return (fioRmdir(real) >= 0) ? 0 : -1;
+
+#elif defined(PSP_BUILD)
+
+    return (sceIoRmdir(real) >= 0) ? 0 : -1;
+
+#elif defined(GC_BUILD)
+
+    return (rmdir(real) == 0) ? 0 : -1;
+
+#elif defined(ANDROID_BUILD)
+
+    return (rmdir(real) == 0) ? 0 : -1;
+
+#elif defined(PC_BUILD)
+
+    #if defined(_WIN32)
+        return (_rmdir(real) == 0) ? 0 : -1;
+    #else
+        return (rmdir(real) == 0) ? 0 : -1;
+    #endif
+
+#else
+
+    return -1;
+
+#endif
+}
+
+int fs_exists(const char *path)
+{
+    const char *real = fs_make_path(path);
+
+    if (!real)
+        return 0;
+
+#if defined(PS2_BUILD)
+
+    int fd = fioOpen(real, O_RDONLY);
+    if (fd >= 0)
+    {
+        fioClose(fd);
+        return 1;
+    }
+    return 0;
+
+#elif defined(PSP_BUILD)
+
+    SceUID fd = sceIoOpen(real, PSP_O_RDONLY, 0);
+    if (fd >= 0)
+    {
+        sceIoClose(fd);
+        return 1;
+    }
+    return 0;
+
+#elif defined(GC_BUILD)
+
+    return (access(real, F_OK) == 0);
+
+#elif defined(ANDROID_BUILD)
+
+    return (access(real, F_OK) == 0);
+
+#elif defined(PC_BUILD)
+
+    return (access(real, F_OK) == 0);
+
+#else
+
+    return 0;
+
+#endif
+}
+
+int fs_isdir(const char *path)
+{
+    const char *real = fs_make_path(path);
+
+    if (!real)
+        return 0;
+
+#if defined(PS2_BUILD)
+
+    fio_stat_t st;
+    if (fioGetstat(real, &st) >= 0)
+        return (st.mode & FIO_S_IFDIR) ? 1 : 0;
+
+    return 0;
+
+#elif defined(PSP_BUILD)
+
+    SceIoStat st;
+    if (sceIoGetstat(real, &st) >= 0)
+        return (st.st_mode & FIO_S_IFDIR) ? 1 : 0;
+
+    return 0;
+
+#elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
+
+    struct stat st;
+    if (stat(real, &st) == 0)
+        return S_ISDIR(st.st_mode);
+
+    return 0;
+
+#else
+
+    return 0;
+
+#endif
 }
