@@ -184,13 +184,13 @@ void drawMenu()
 	if (f)
 	{
 		fs_close(f);
-		print(20, 200, "archivo creado", white);
+		print(100, 200, "archivo creado", white);
 	}
 
 	if (fs_remove("test.txt") == 0)
-		print(20, 220, "archivo eliminado", white);
+		print(100, 220, "archivo eliminado", white);
 	else
-		print(20, 220, "error eliminando", white); 
+		print(100, 220, "error eliminando", white); 
 
 
 	Render();
