@@ -24,6 +24,7 @@ extern "C"
 	{
 		void *handle;			/* DIR*, SceUID, etc */
 		FS_DIRENT current;		/* entrada actual */
+		char  path[512];
 	} FS_DIR;
 
 	typedef struct
@@ -32,6 +33,8 @@ extern "C"
 		u32 pos;
 		u32 size;
 	} FS_FILE;
+	
+
 
 
 
@@ -55,8 +58,8 @@ extern "C"
 
 	/* API estilo dirent */
 	int fs_opendir(FS_DIR * dir, const char *path);
-	FS_DIRENT *fs_readdir(FS_DIR * dir);
-	void fs_closedir(FS_DIR * dir);
+	int fs_readdir(FS_DIR * dir, FS_DIRENT * ent);
+	int fs_closedir(FS_DIR * dir);
 
 
 #ifdef __cplusplus

@@ -153,6 +153,33 @@ void drawMenu()
 	else
 		print(80, 120, "error eliminando", white);
 
+	FS_DIR dir;
+
+	if (fs_opendir(&dir, ".") == 0)
+		print(80, 140, "opendir OK", white);
+	else
+		print(80, 140, "opendir FAIL", white);
+
+	//FS_DIR dir;
+	FS_DIRENT ent;
+
+	int y = 160;
+
+	if (fs_opendir(&dir, ".") == 0)
+	{
+		while (fs_readdir(&dir, &ent) == 0)
+		{
+			print(20, y, ent.name, white);
+			y += 15;
+		}
+
+		fs_closedir(&dir);
+	}
+	else
+	{
+		print(20, y, "opendir FAIL", white);
+	}
+
 
 
 	Render();

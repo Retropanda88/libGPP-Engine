@@ -659,3 +659,149 @@ int fs_isdir(const char *path)
 
 #endif
 }
+
+int fs_opendir(FS_DIR *dir, const char *path)
+{
+    const char *real = fs_make_path(path);
+
+    if (!dir || !real)
+        return -1;
+
+#if defined(PS2_BUILD)
+
+    int fd = fioDopen(real);
+    if (fd < 0)
+        return -1;
+
+    dir->handle = (void*)(intptr_t)fd;
+
+    /* guardar ruta */
+    strncpy(dir->path, real, sizeof(dir->path)-1);
+    dir->path[sizeof(dir->path)-1] = '\0';
+
+    return 0;
+
+#elif defined(PSP_BUILD)
+
+    SceUID fd = sceIoDopen(real);
+    if (fd < 0)
+        return -1;
+
+    dir->handle = (void*)(intptr_t)fd;
+
+    /* guardar ruta */
+    strncpy(dir->path, real, sizeof(dir->path)-1);
+    dir->path[sizeof(dir->path)-1] = '\0';
+
+    return 0;
+
+#elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
+
+    DIR *d = opendir(real);
+    if (!d)
+        return -1;
+
+    dir->handle = d;
+
+    /* guardar ruta para fs_readdir */
+    strncpy(dir->path, real, sizeof(dir->path)-1);
+    dir->path[sizeof(dir->path)-1] = '\0';
+
+    return 0;
+
+#else
+
+    return -1;
+
+#endif
+}
+
+int fs_readdir(FS_DIR *dir, FS_DIRENT *ent)
+{
+    if (!dir || !ent || !dir->handle)
+        return -1;
+
+#if defined(PS2_BUILD)
+
+    fio_dirent_t info;
+    int fd = (int)(intptr_t)dir->handle;
+
+    if (fioDread(fd, &info) <= 0)
+        return -1;
+
+    strncpy(ent->name, info.name, sizeof(ent->name)-1);
+    ent->name[sizeof(ent->name)-1] = '\0';
+
+    ent->is_dir = (info.stat.mode & FIO_S_IFDIR) ? 1 : 0;
+
+    return 0;
+
+#elif defined(PSP_BUILD)
+
+    SceIoDirent info;
+    SceUID fd = (SceUID)(intptr_t)dir->handle;
+
+    if (sceIoDread(fd, &info) <= 0)
+        return -1;
+
+    strncpy(ent->name, info.d_name, sizeof(ent->name)-1);
+    ent->name[sizeof(ent->name)-1] = '\0';
+
+    ent->is_dir = (info.d_stat.st_mode & FIO_S_IFDIR) ? 1 : 0;
+
+    return 0;
+
+#elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
+
+    DIR *d = (DIR*)dir->handle;
+    struct dirent *entry = readdir(d);
+
+    if (!entry)
+        return -1;
+
+    /* copiar nombre seguro */
+    strncpy(ent->name, entry->d_name, sizeof(ent->name)-1);
+    ent->name[sizeof(ent->name)-1] = '\0';
+
+    /* construir ruta completa */
+    char fullpath[512];
+    snprintf(fullpath, sizeof(fullpath), "%s/%s", dir->path, entry->d_name);
+
+    ent->is_dir = fs_isdir(fullpath);
+
+    return 0;
+
+#else
+
+    return -1;
+
+#endif
+}
+
+
+int fs_closedir(FS_DIR *dir)
+{
+    if (!dir)
+        return -1;
+
+#if defined(PS2_BUILD)
+
+    int fd = (int)(intptr_t)dir->handle;
+    return fioDclose(fd);
+
+#elif defined(PSP_BUILD)
+
+    SceUID fd = (SceUID)(intptr_t)dir->handle;
+    return sceIoDclose(fd);
+
+#elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
+
+    DIR *d = (DIR*)dir->handle;
+    return closedir(d);
+
+#else
+
+    return -1;
+
+#endif
+}
