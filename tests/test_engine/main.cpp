@@ -1,201 +1,156 @@
-/* 
-   ============================================================================
-   libGPP-Engine Test Suite - Main Entry Point Author: Andrés Ruiz Pérez
-   Description: Executes all rendering stress tests for libGPP-Engine. Designed
-   for embedded platforms with 320x240 resolution.
-
-   Tests included: - Test 1: Random texture allocation + gradients - Test 2:
-   Random rectangle gradient textures - Test 3: Alpha blending / fade test -
-   Test 4: Horizontal gradient surfaces - Test 5: Vertical gradient surfaces -
-   Test 6: Radial gradient surfaces
-
-   Supported Platforms: - Android, PSP, PS2, GameCube
-   ============================================================================ */
-
 #include <engine/Engine.h>
 
+#define MAX_FS_TESTS 32
 
-#include "test0.h"
-#include "test1.h"
-#include "test2.h"
-#include "test3.h"
-#include "test4.h"
-#include "test5.h"
-#include "test6.h"
-#include "test7.h"
-#include "test8.h"
-#include "test9.h"
-#include "test10.h"
-
-
-#define MAX_LINES 6
-
-const char list[][50] = {
-	"Solid Rectangle",
-	"Horizontal Gradient",
-	"Vertical Gradient",
-	"Radial Gradient",
-	"Sprite Drawing",
-	"Font Writing"
-};
-
-static Cmixer gMixer;
-
-
-
-int audio_init(void)
+typedef struct
 {
-	/* inicializar mixer */
-	gMixer.init(22050, 2, 512, 128);
+	const char *name;
+	int passed;
+} FsTestResult;
 
-	/* cargar música */
-	if (!gMixer.loadMusic("music.wav", true))
+static FsTestResult gFsTests[MAX_FS_TESTS];
+static int gFsTestCount = 0;
+static int gFsErrors = 0;
+static int gFsExecuted = 0;
+
+void fs_test_assert(const char *name, int condition)
+{
+	if (gFsTestCount >= MAX_FS_TESTS)
+		return;
+
+	gFsTests[gFsTestCount].name = name;
+	gFsTests[gFsTestCount].passed = condition ? 1 : 0;
+
+	if (!condition)
+		gFsErrors++;
+
+	gFsTestCount++;
+}
+
+void run_fs_full_test(void)
+{
+	gFsTestCount = 0;
+	gFsErrors = 0;
+
+	FS_DIR dir;
+	FS_DIRENT ent;
+	int found = 0;
+
+	// 1. mkdir
+	fs_test_assert("mkdir testdir", fs_mkdir("testdir") == 0);
+
+	// 2. mkdir sub
+	fs_test_assert("mkdir sub", fs_mkdir("testdir/sub") == 0);
+
+	// 3. create file
+	FS_FILE *f = fs_open("testdir/sub/file.txt", "wb");
+	int created = (f != NULL);
+	fs_test_assert("create file", created);
+
+	if (f)
 	{
-		printf("Audio: failed to load music\n");
-		return -1;
+		const char *msg = "libGPP";
+		fs_write(msg, 1, 6, f);
+		fs_close(f);
 	}
 
-	gMixer.playMusic();
-	return 0;
+	// 4. exists file
+	fs_test_assert("exists file", fs_exists("testdir/sub/file.txt"));
+
+	// 5. read + validate
+	char buffer[16] = { 0 };
+	f = fs_open("testdir/sub/file.txt", "rb");
+	int valid = 0;
+	if (f)
+	{
+		fs_read(buffer, 1, 6, f);
+		fs_close(f);
+
+		if (strcmp(buffer, "libGPP") == 0)
+			valid = 1;
+	}
+
+	fs_test_assert("read content", valid);
+
+	// 6. readdir
+	if (fs_opendir(&dir, "testdir/sub") == 0)
+	{
+		while (fs_readdir(&dir, &ent) == 0)
+		{
+			if (strcmp(ent.name, "file.txt") == 0)
+				found = 1;
+		}
+		fs_closedir(&dir);
+	}
+
+	fs_test_assert("readdir found file", found);
+
+	// 7. remove file
+	fs_test_assert("remove file", fs_remove("testdir/sub/file.txt") == 0);
+
+	// 8. rmdir sub
+	fs_test_assert("rmdir sub", fs_rmdir("testdir/sub") == 0);
+
+	// 9. rmdir main
+	fs_test_assert("rmdir testdir", fs_rmdir("testdir") == 0);
+
+	gFsExecuted = 1;
 }
 
-void audio_shutdown(void)
+void draw_fs_results(void)
 {
-	// gMixer.stopMusic();
+	u32 white = color_rgb(255, 255, 255);
+	u32 green = color_rgb(0, 255, 0);
+	u32 red = color_rgb(255, 0, 0);
+
+	int y = 30;
+
+	print(20, 10, "Filesystem Test Suite", white);
+
+	for (int i = 0; i < gFsTestCount; i++)
+	{
+		u32 color = gFsTests[i].passed ? green : red;
+		print(20, y, gFsTests[i].name, color);
+		y += 15;
+	}
+
+	y += 10;
+
+	if (gFsErrors == 0)
+		print(20, y, "ALL TESTS PASSED", green);
+	else
+	{
+		char buffer[64];
+		snprintf(buffer, sizeof(buffer), "FAILED: %d errors", gFsErrors);
+		print(20, y, buffer, red);
+	}
 }
-
-
-void drawMenu();
-
 
 int main(int argc, char **argv)
 {
-	if (Init_Sistem("libGPP-Engine Test Suite v01") != 0)
+	if (Init_Sistem("libGPP-Engine FS Test") != 0)
 		return 1;
 
 	if (Set_Video() != 0)
 		return 1;
 
-	if (audio_init() < 0)
-		return 1;
-
-
-	drawMenu();
-
-
-	audio_shutdown();
-	off_video();
-	shoutdown_sistem();
-
-	return 0;
-}
-
-void drawMenu()
-{
-	/* Superficie persistente reutilizable */
-	SDL_Surface *s = create_surface(320, 240, SDL_SWSURFACE);
-	if (!s)
-	{
-		print(70, 100, "ERROR: Failed to create surface", color_rgb(255, 0, 0));
-		Render();
-		SDL_Delay(2000);
-	}
-
-	fill_radial_gradient(logic, color_rgb(25, 77, 255), color_rgb(22, 25, 160));
-	u32 white = color_rgb(255, 255, 255);
-
-
-
-	draw_line(2, 2, 316, 2, white);
-	draw_line(2, 2, 2, 236, white);
-	draw_line(2, 236, 316, 236, white);
-	draw_line(316, 2, 316, 236, white);
-	draw_line(2, 30, 316, 30, white);
-
-	/* const int x = 80; const int y = 80; int line_height = 12;
-
-
-	   int count = sizeof(list) / sizeof(list[0]);
-
-	   for (int i = 0; i < count; i++) print(x, y + i * line_height, list[i],
-	   white);
-
-
-	   print(80, 15, "Demo libGPP-Engine", white); */
-
-
-	/* --- TEST FS --- */
-
-	if (!fs_exists("roms"))
-	{
-		if (fs_mkdir("roms") == 0)
-			print(80, 40, "roms creado", white);
-		else
-			print(80, 40, "error creando roms", white);
-	}
-	else
-	{
-		print(80, 40, "roms ya existe", white);
-	}
-
-	if (fs_exists("roms"))
-		print(80, 60, "roms confirmado", white);
-	else
-		print(80, 60, "roms no existe", white);
-
-	if (fs_isdir("roms"))
-		print(80, 80, "roms es directorio", white);
-	else
-		print(80, 80, "roms NO es directorio", white);
-
-	if (fs_rmdir("bin/roms") == 0)
-		print(80, 120, "roms eliminado", white);
-	else
-		print(80, 120, "error eliminando", white);
-
-	FS_DIR dir;
-
-	if (fs_opendir(&dir, ".") == 0)
-		print(80, 140, "opendir OK", white);
-	else
-		print(80, 140, "opendir FAIL", white);
-
-	// FS_DIR dir;
-	FS_DIRENT ent;
-
-	int y = 160;
-
-	if (fs_opendir(&dir, ".") == 0)
-	{
-		while (fs_readdir(&dir, &ent) == 0)
-		{
-			print(20, y, ent.name, white);
-			y += 15;
-		}
-
-		fs_closedir(&dir);
-	}
-	else
-	{
-		print(20, y, "opendir FAIL", white);
-	}
-
-	FS_FILE *f = fs_open("test.txt", "wb");
-	if (f)
-	{
-		fs_close(f);
-		print(100, 200, "archivo creado", white);
-	}
-
-	if (fs_remove("test.txt") == 0)
-		print(100, 220, "archivo eliminado", white);
-	else
-		print(100, 220, "error eliminando", white); 
-
-
-	Render();
 	while (1)
 	{
-	};
+		fill_radial_gradient(logic, color_rgb(25, 77, 255), color_rgb(22, 25, 160));
 
+		if (!gFsExecuted)
+			run_fs_full_test();
+
+		draw_fs_results();
+
+		Render();
+
+#if defined(ANDROID_BUILD) || defined(PC_BUILD)
+		SDL_Delay(16);
+#endif
+	}
+
+	off_video();
+	shoutdown_sistem();
+	return 0;
 }
