@@ -126,9 +126,9 @@ void drawMenu()
 
 	/* --- TEST FS --- */
 
-	if (!fs_exists("bin/roms"))
+	if (!fs_exists("roms"))
 	{
-		if (fs_mkdir("bin/roms") == 0)
+		if (fs_mkdir("roms") == 0)
 			print(80, 40, "roms creado", white);
 		else
 			print(80, 40, "error creando roms", white);
@@ -138,12 +138,12 @@ void drawMenu()
 		print(80, 40, "roms ya existe", white);
 	}
 
-	if (fs_exists("bin/roms"))
+	if (fs_exists("roms"))
 		print(80, 60, "roms confirmado", white);
 	else
 		print(80, 60, "roms no existe", white);
 
-	if (fs_isdir("bin/roms"))
+	if (fs_isdir("roms"))
 		print(80, 80, "roms es directorio", white);
 	else
 		print(80, 80, "roms NO es directorio", white);

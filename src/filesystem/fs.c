@@ -119,8 +119,36 @@ const char *fs_make_path(const char *relative)
     if (!relative)
         return NULL;
 
-    snprintf(full_path, sizeof(full_path),
-             "%s%s", PREFIX, relative);
+#if defined(PSP_BUILD)
+    char app_folder[128] = {0};
+
+    // Obtener ruta completa del EBOOT.PBP
+    const char *init_file = sceKernelInitFileName();
+
+    if (init_file)
+    {
+        // init_file = "ms0:/PSP/GAME/NOMBRE_APP/EBOOT.PBP"
+        const char *start = strstr(init_file, PREFIX);
+        if (start)
+        {
+            start += strlen(PREFIX);  // apuntar a NOMBRE_APP/
+            const char *end = strchr(start, '/');
+            if (end)
+            {
+                int len = end - start;
+                if (len >= (int)sizeof(app_folder))
+                    len = sizeof(app_folder) - 1;
+                strncpy(app_folder, start, len);
+                app_folder[len] = '\0';
+            }
+        }
+    }
+
+    snprintf(full_path, sizeof(full_path), "%s%s/%s", PREFIX, app_folder, relative);
+
+#else
+    snprintf(full_path, sizeof(full_path), "%s%s", PREFIX, relative);
+#endif
 
     return full_path;
 }
@@ -586,12 +614,10 @@ int fs_rmdir(const char *path)
 int fs_exists(const char *path)
 {
     const char *real = fs_make_path(path);
-
     if (!real)
         return 0;
 
 #if defined(PS2_BUILD)
-
     int fd = fioOpen(real, O_RDONLY);
     if (fd >= 0)
     {
@@ -601,7 +627,6 @@ int fs_exists(const char *path)
     return 0;
 
 #elif defined(PSP_BUILD)
-
     SceUID fd = sceIoOpen(real, PSP_O_RDONLY, 0);
     if (fd >= 0)
     {
@@ -610,23 +635,12 @@ int fs_exists(const char *path)
     }
     return 0;
 
-#elif defined(GC_BUILD)
-
+#elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
     struct stat st;
     return (stat(real, &st) == 0);
 
-#elif defined(ANDROID_BUILD)
-
-    return (access(real, F_OK) == 0);
-
-#elif defined(PC_BUILD)
-
-    return (access(real, F_OK) == 0);
-
 #else
-
     return 0;
-
 #endif
 }
 
@@ -639,16 +653,21 @@ int fs_isdir(const char *path)
 
 #if defined(PS2_BUILD)
 
-   fio_stat_t st;
-
+    fio_stat_t st;
     if (fioGetstat(real, &st) < 0)
         return 0;
 
     /* En PS2 los directorios tienen el bit 0x2000 */
-    if (st.mode & 0x2000)
-        return 1;
+    return (st.mode & 0x2000) ? 1 : 0;
 
-    return 0;
+#elif defined(PSP_BUILD)
+
+    SceIoStat st;
+    if (sceIoGetstat(real, &st) < 0)
+        return 0;
+
+    /* En PSP los directorios tienen el flag SCE_S_IFDIR */
+    return (st.st_attr & FIO_SO_IFDIR) ? 1 : 0;
 
 #elif defined(GC_BUILD) || defined(ANDROID_BUILD) || defined(PC_BUILD)
 
