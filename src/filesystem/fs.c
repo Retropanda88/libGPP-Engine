@@ -2,6 +2,8 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
 
 #include <engine/types.h>
 #include <filesystem/fs.h>
@@ -19,6 +21,9 @@
 #include <iopcontrol.h>
 #include <io_common.h>
 #include <stdio.h>
+#include <stdint.h>
+
+
 
 // drivers irx 
 #include <filesystem/usbd.h>
@@ -607,7 +612,8 @@ int fs_exists(const char *path)
 
 #elif defined(GC_BUILD)
 
-    return (access(real, F_OK) == 0);
+    struct stat st;
+    return (stat(real, &st) == 0);
 
 #elif defined(ANDROID_BUILD)
 
@@ -633,17 +639,14 @@ int fs_isdir(const char *path)
 
 #if defined(PS2_BUILD)
 
-    fio_stat_t st;
-    if (fioGetstat(real, &st) >= 0)
-        return (st.mode & FIO_S_IFDIR) ? 1 : 0;
+   fio_stat_t st;
 
-    return 0;
+    if (fioGetstat(real, &st) < 0)
+        return 0;
 
-#elif defined(PSP_BUILD)
-
-    SceIoStat st;
-    if (sceIoGetstat(real, &st) >= 0)
-        return (st.st_mode & FIO_S_IFDIR) ? 1 : 0;
+    /* En PS2 los directorios tienen el bit 0x2000 */
+    if (st.mode & 0x2000)
+        return 1;
 
     return 0;
 
@@ -726,30 +729,35 @@ int fs_readdir(FS_DIR *dir, FS_DIRENT *ent)
 #if defined(PS2_BUILD)
 
     fio_dirent_t info;
-    int fd = (int)(intptr_t)dir->handle;
+    int fd = (unsigned int)dir->handle;
 
     if (fioDread(fd, &info) <= 0)
         return -1;
 
-    strncpy(ent->name, info.name, sizeof(ent->name)-1);
-    ent->name[sizeof(ent->name)-1] = '\0';
+    strncpy(ent->name, info.name, sizeof(ent->name) - 1);
+    ent->name[sizeof(ent->name) - 1] = '\0';
 
-    ent->is_dir = (info.stat.mode & FIO_S_IFDIR) ? 1 : 0;
+    /* En PS2 el bit 0x2000 indica directorio */
+    ent->is_dir = (info.stat.mode & 0x2000) ? 1 : 0;
 
     return 0;
 
 #elif defined(PSP_BUILD)
 
-    SceIoDirent info;
     SceUID fd = (SceUID)(intptr_t)dir->handle;
 
-    if (sceIoDread(fd, &info) <= 0)
+    SceIoDirent info;
+    memset(&info, 0, sizeof(SceIoDirent));   // ⚠ IMPORTANTE
+
+    int res = sceIoDread(fd, &info);
+
+    if (res <= 0)
         return -1;
 
     strncpy(ent->name, info.d_name, sizeof(ent->name)-1);
     ent->name[sizeof(ent->name)-1] = '\0';
 
-    ent->is_dir = (info.d_stat.st_mode & FIO_S_IFDIR) ? 1 : 0;
+    ent->is_dir = (info.d_stat.st_attr & FIO_SO_IFDIR) ? 1 : 0;
 
     return 0;
 
