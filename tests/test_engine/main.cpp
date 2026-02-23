@@ -1,156 +1,91 @@
 #include <engine/Engine.h>
+#include <input/Input.h>
+#include <input/inputTypes.h>
 
-#define MAX_FS_TESTS 32
+#define MAX_PLAYERS 2
+#define MAX_BUTTONS BUTTON_COUNT
 
-typedef struct
+void draw_input_state()
 {
-	const char *name;
-	int passed;
-} FsTestResult;
+    u32 white  = color_rgb(255,255,255);
+    u32 green  = color_rgb(0,255,0);
+    u32 red    = color_rgb(255,0,0);
+    u32 yellow = color_rgb(255,255,0);
 
-static FsTestResult gFsTests[MAX_FS_TESTS];
-static int gFsTestCount = 0;
-static int gFsErrors = 0;
-static int gFsExecuted = 0;
+    int y = 30;
 
-void fs_test_assert(const char *name, int condition)
-{
-	if (gFsTestCount >= MAX_FS_TESTS)
-		return;
+    print(20, 10, "Input Test Suite", white);
 
-	gFsTests[gFsTestCount].name = name;
-	gFsTests[gFsTestCount].passed = condition ? 1 : 0;
+    for (int p = 0; p < MAX_PLAYERS; p++)
+    {
+        if (!Input::isConnected(p))
+            continue;
 
-	if (!condition)
-		gFsErrors++;
+        char title[32];
+        snprintf(title, sizeof(title), "Player %d", p);
+        print(20, y, title, yellow);
+        y += 15;
 
-	gFsTestCount++;
-}
+        for (int b = 0; b < MAX_BUTTONS; b++)
+        {
+            int down     = Input::isDown(p, (InputButton)b);
+            int pressed  = Input::isPressed(p, (InputButton)b);
+            int released = Input::isReleased(p, (InputButton)b);
 
-void run_fs_full_test(void)
-{
-	gFsTestCount = 0;
-	gFsErrors = 0;
+            if (down || pressed || released)
+            {
+                char line[64];
 
-	FS_DIR dir;
-	FS_DIRENT ent;
-	int found = 0;
+                snprintf(line, sizeof(line),
+                         "Btn %d  D:%d P:%d R:%d",
+                         b, down, pressed, released);
 
-	// 1. mkdir
-	fs_test_assert("mkdir testdir", fs_mkdir("testdir") == 0);
+                u32 color = white;
 
-	// 2. mkdir sub
-	fs_test_assert("mkdir sub", fs_mkdir("testdir/sub") == 0);
+                if (pressed)
+                    color = green;
+                else if (released)
+                    color = red;
 
-	// 3. create file
-	FS_FILE *f = fs_open("testdir/sub/file.txt", "wb");
-	int created = (f != NULL);
-	fs_test_assert("create file", created);
+                print(40, y, line, color);
+                y += 15;
+            }
+        }
 
-	if (f)
-	{
-		const char *msg = "libGPP";
-		fs_write(msg, 1, 6, f);
-		fs_close(f);
-	}
-
-	// 4. exists file
-	fs_test_assert("exists file", fs_exists("testdir/sub/file.txt"));
-
-	// 5. read + validate
-	char buffer[16] = { 0 };
-	f = fs_open("testdir/sub/file.txt", "rb");
-	int valid = 0;
-	if (f)
-	{
-		fs_read(buffer, 1, 6, f);
-		fs_close(f);
-
-		if (strcmp(buffer, "libGPP") == 0)
-			valid = 1;
-	}
-
-	fs_test_assert("read content", valid);
-
-	// 6. readdir
-	if (fs_opendir(&dir, "testdir/sub") == 0)
-	{
-		while (fs_readdir(&dir, &ent) == 0)
-		{
-			if (strcmp(ent.name, "file.txt") == 0)
-				found = 1;
-		}
-		fs_closedir(&dir);
-	}
-
-	fs_test_assert("readdir found file", found);
-
-	// 7. remove file
-	fs_test_assert("remove file", fs_remove("testdir/sub/file.txt") == 0);
-
-	// 8. rmdir sub
-	fs_test_assert("rmdir sub", fs_rmdir("testdir/sub") == 0);
-
-	// 9. rmdir main
-	fs_test_assert("rmdir testdir", fs_rmdir("testdir") == 0);
-
-	gFsExecuted = 1;
-}
-
-void draw_fs_results(void)
-{
-	u32 white = color_rgb(255, 255, 255);
-	u32 green = color_rgb(0, 255, 0);
-	u32 red = color_rgb(255, 0, 0);
-
-	int y = 30;
-
-	print(20, 10, "Filesystem Test Suite", white);
-
-	for (int i = 0; i < gFsTestCount; i++)
-	{
-		u32 color = gFsTests[i].passed ? green : red;
-		print(20, y, gFsTests[i].name, color);
-		y += 15;
-	}
-
-	y += 10;
-
-	if (gFsErrors == 0)
-		print(20, y, "ALL TESTS PASSED", green);
-	else
-	{
-		char buffer[64];
-		snprintf(buffer, sizeof(buffer), "FAILED: %d errors", gFsErrors);
-		print(20, y, buffer, red);
-	}
+        y += 10;
+    }
 }
 
 int main(int argc, char **argv)
 {
-	if (Init_Sistem("libGPP-Engine FS Test") != 0)
-		return 1;
+    if (Init_Sistem("libGPP-Engine Input Test") != 0)
+        return 1;
 
-	if (Set_Video() != 0)
-		return 1;
+    if (Set_Video() != 0)
+        return 1;
 
-	while (1)
-	{
-		fill_radial_gradient(logic, color_rgb(25, 77, 255), color_rgb(22, 25, 160));
+    Input::init();
 
-		if (!gFsExecuted)
-			run_fs_full_test();
+    while (1)
+    {
+        fill_radial_gradient(
+            logic,
+            color_rgb(25,77,255),
+            color_rgb(22,25,160)
+        );
 
-		draw_fs_results();
+        Input::update();
 
-		Render();
+        draw_input_state();
+
+        Render();
 
 #if defined(ANDROID_BUILD) || defined(PC_BUILD)
-		SDL_Delay(16);
+        SDL_Delay(16);
 #endif
-	}
+    }
 
-	off_video();
-	shoutdown_sistem();
-	return 0;
+    off_video();
+    shoutdown_sistem();
+    return 0;
 }
