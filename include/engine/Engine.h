@@ -5,6 +5,7 @@
 #include <engine/types.h>
 #include <engine/surface_tools.h>
 #include <engine/font.h>
+#include <engine/gfxFont.h>
 
 
 #include <engine/SDL_gfxPrimitives.h>
