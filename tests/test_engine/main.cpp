@@ -2,7 +2,8 @@
 #include <input/Input.h>
 #include <input/inputTypes.h>
 
-#include "pad_jpg.h"
+//#include "pad_jpg.h"
+#include "snes_png.h"
 
 SDL_Surface *img = NULL;
 SDL_Surface *set = NULL;
@@ -12,10 +13,10 @@ int markerY = -100;
 
 void load_surface()
 {
-    img = load_texture_from_mem((u8 *) pad_data, pad_size);
+    img = load_texture_from_mem((u8 *) snes_data, snes_size);
 
-    set = create_surface(15, 15, SDL_SWSURFACE);
-    fill_radial_gradient(set, color_rgb(25, 100, 100), color_rgb(0, 255, 100));
+    set = create_surface(13, 13, SDL_SWSURFACE);
+    fill_radial_gradient(set, color_rgb(20, 100, 100), color_rgb(0, 255, 100));
     apply_alpha(set, 180);
 }
 
@@ -28,64 +29,64 @@ void update_game()
     // Flechas
     if (Input::isDown(0, BUTTON_LEFT))
     {
-        markerX = 52;
-        markerY = 88;
+        markerX = 62;
+        markerY = 123;
     }
     if (Input::isDown(0, BUTTON_RIGHT))
     {
-        markerX = 88;
-        markerY = 88;
+        markerX = 92;
+        markerY = 123;
     }
     if (Input::isDown(0, BUTTON_UP))
     {
-        markerX = 72;
-        markerY = 70;
+        markerX = 78;
+        markerY = 110;
     }
     if (Input::isDown(0, BUTTON_DOWN))
     {
-        markerX = 72;
-        markerY = 105;
+        markerX = 78;
+        markerY = 135;
     }
 
     // Botones
     if (Input::isDown(0, BUTTON_A))
     {
-        markerX = 265;
-        markerY = 90;
+        markerX = 250;
+        markerY = 122;
     }
     if (Input::isDown(0, BUTTON_B))
     {
        
-        markerX = 238;
-        markerY = 110;
+        markerX = 225;
+        markerY = 140;
     }
     if (Input::isDown(0, BUTTON_X))
     {
-        markerX = 238;
-        markerY = 68;
+        markerX = 226;
+        markerY = 104;
     }
     if (Input::isDown(0, BUTTON_Y))
     {
-        markerX = 210;
-        markerY = 87;
+        markerX = 201;
+        markerY = 123;
     }
     
      if (Input::isDown(0, BUTTON_L1))
     {
         markerX = 70;
-        markerY = 28;
+        markerY = 60;
     }
     
      if (Input::isDown(0, BUTTON_R1))
     {
-        markerX = 240;
-        markerY = 28;
+        markerX = 232;
+        markerY = 60;
     }
     
        if (Input::isDown(0, BUTTON_START))
     {
-        markerX = 160;
-        markerY = 98;
+        markerX = 158;
+        markerY = 128;
     }
 }
 
@@ -94,7 +95,7 @@ void render_game()
 	cls();
 
 	// Dibujar imagen
-	SDL_Surface *temp = rotozoom_create(img, 0, 0.2);
+	SDL_Surface *temp = rotozoom_create(img, 0, 0.8);
 	rotozoom_set_position(temp, 160, 120);
 
 	// Dibujar texto
