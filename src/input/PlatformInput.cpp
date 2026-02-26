@@ -226,6 +226,7 @@ void PlatformInput::poll(InputSystem* system)
     #include <loadfile.h>
     #include <iopcontrol.h>
     #include <libpad.h>
+    //drivers
     #include <input/sio2man.h>
     #include <input/padman.h>
 
@@ -260,38 +261,45 @@ void PlatformInput::initHardware()
 #elif defined(PLATFORM_PS2)
 
     SifInitRpc(0);
+    SifLoadFileInit();   
 
-    // Reset IOP (IMPORTANTE en hardware real)
-    //SifIopReset("", 0);
-    //while (!SifIopSync()) {}
-
-    SifInitRpc(0);
-
-    // Cargar módulos IRX embebidos
     int ret;
 
     ret = SifExecModuleBuffer(sio2man_irx, sio2man_irx_size, 0, NULL, NULL);
-    if (ret < 0) {
-        printf("Error loading SIO2MAN\n");
-    }
+    if (ret < 0)
+        printf("SIO2MAN load failed: %d\n", ret);
 
     ret = SifExecModuleBuffer(padman_irx, padman_irx_size, 0, NULL, NULL);
-    if (ret < 0) {
-        printf("Error loading PADMAN\n");
-    }
+    if (ret < 0)
+        printf("PADMAN load failed: %d\n", ret);
 
     padInit(0);
 
-    if (!padPortOpen(0, 0, padBuf)) {
+    int port = 0;
+    int slot = 0;
+
+    if (!padPortOpen(port, slot, padBuf))
+    {
         printf("padPortOpen failed\n");
+        return;
     }
 
-    // Esperar a que el mando esté estable
+    // Esperar a que el pad esté listo
     int state;
-    do {
-        state = padGetState(0, 0);
-    } while (state != PAD_STATE_STABLE &&
-             state != PAD_STATE_FINDCTP1);
+    while ((state = padGetState(port, slot)) != PAD_STATE_STABLE &&
+           state != PAD_STATE_FINDCTP1)
+    {
+        if (state == PAD_STATE_DISCONN)
+        {
+            printf("Pad disconnected\n");
+            return;
+        }
+    }
+
+    //  Forzar modo DualShock
+    padSetMainMode(port, slot, PAD_MMODE_DUALSHOCK, PAD_MMODE_LOCK);
+
+    while (padGetState(port, slot) != PAD_STATE_STABLE););
 
 #endif
 }
@@ -436,29 +444,38 @@ void PlatformInput::poll(InputSystem* system)
 
     struct padButtonStatus buttons;
 
-    if (padRead(0, 0, &buttons) != 0)
+    int port = 0;
+    int slot = 0;
+
+    int state = padGetState(port, slot);
+
+    if (state != PAD_STATE_STABLE &&
+        state != PAD_STATE_FINDCTP1)
+        return;
+
+    if (padRead(port, slot, &buttons) > 0)
     {
-        u32 maskPlayer0 = 0;
+        // EXACTO como demo oficial
+        u32 paddata = 0xffff ^ buttons.btns;
+        u32 mask = 0;
 
-        u16 btn = ~buttons.btns; // PS2 usa bits invertidos
+        if (paddata & PAD_CROSS)     mask |= (1u << BUTTON_A);
+        if (paddata & PAD_CIRCLE)    mask |= (1u << BUTTON_B);
+        if (paddata & PAD_SQUARE)    mask |= (1u << BUTTON_X);
+        if (paddata & PAD_TRIANGLE)  mask |= (1u << BUTTON_Y);
 
-        if (btn & PAD_CROSS)     maskPlayer0 |= (1u << BUTTON_A);
-        if (btn & PAD_CIRCLE)    maskPlayer0 |= (1u << BUTTON_B);
-        if (btn & PAD_SQUARE)    maskPlayer0 |= (1u << BUTTON_X);
-        if (btn & PAD_TRIANGLE)  maskPlayer0 |= (1u << BUTTON_Y);
+        if (paddata & PAD_L1)        mask |= (1u << BUTTON_L1);
+        if (paddata & PAD_R1)        mask |= (1u << BUTTON_R1);
 
-        if (btn & PAD_L1)        maskPlayer0 |= (1u << BUTTON_L1);
-        if (btn & PAD_R1)        maskPlayer0 |= (1u << BUTTON_R1);
+        if (paddata & PAD_START)     mask |= (1u << BUTTON_START);
+        if (paddata & PAD_SELECT)    mask |= (1u << BUTTON_SELECT);
 
-        if (btn & PAD_START)     maskPlayer0 |= (1u << BUTTON_START);
-        if (btn & PAD_SELECT)    maskPlayer0 |= (1u << BUTTON_SELECT);
+        if (paddata & PAD_UP)        mask |= (1u << BUTTON_UP);
+        if (paddata & PAD_DOWN)      mask |= (1u << BUTTON_DOWN);
+        if (paddata & PAD_LEFT)      mask |= (1u << BUTTON_LEFT);
+        if (paddata & PAD_RIGHT)     mask |= (1u << BUTTON_RIGHT);
 
-        if (btn & PAD_UP)        maskPlayer0 |= (1u << BUTTON_UP);
-        if (btn & PAD_DOWN)      maskPlayer0 |= (1u << BUTTON_DOWN);
-        if (btn & PAD_LEFT)      maskPlayer0 |= (1u << BUTTON_LEFT);
-        if (btn & PAD_RIGHT)     maskPlayer0 |= (1u << BUTTON_RIGHT);
-
-        system->setPlayerState(0, maskPlayer0);
+        system->setPlayerState(0, mask);
     }
 
 #endif
