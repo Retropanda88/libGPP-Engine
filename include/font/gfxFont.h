@@ -23,7 +23,7 @@
 
 #include <SDL/SDL_image.h>
 #include <SDL/SDL.h>
-#include <engine/SFont.h>
+#include <font/SFont.h>
 #include <string>
 #include <engine/types.h>
 

@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <engine/SDL_rotozoom.h>
+#include <gfx/SDL_rotozoom.h>
 
 #define MAX(a,b)    (((a) > (b)) ? (a) : (b))
 

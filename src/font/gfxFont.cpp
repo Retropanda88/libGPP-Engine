@@ -1,4 +1,4 @@
-#include <engine/gfxFont.h>
+#include <font/gfxFont.h>
 
 #include <stdarg.h>				// atexit?
 #include <stdlib.h>
@@ -6,14 +6,14 @@
 #include <string>
 
 #include <engine/surface_tools.h>
-#include <engine/SFont.h>
+#include <font/SFont.h>
 #include <engine/log.h>
 
 // fonts 
-#include <engine/font_large.h>
-#include <engine/font_mmx.h>
-#include <engine/font_small.h>
-#include <engine/font_rock.h>
+#include <font/font_large.h>
+#include <font/font_mmx.h>
+#include <font/font_small.h>
+#include <font/font_rock.h>
 
 
 // chars caraters order

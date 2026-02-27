@@ -9,7 +9,7 @@
  * https://www.gnu.org/licenses/
  */
 
-#include <engine/font.h>
+#include <font/font.h>
 #include <SDL/SDL.h>
 
 #include <stdio.h>

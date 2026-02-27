@@ -1,7 +1,7 @@
-#include <engine/gfxtexture.h>
+#include <gfx/gfxtexture.h>
 #include <SDL/SDL_image.h>
-#include <engine/SDL_rotozoom.h>
-#include <engine/SDL_gfxPrimitives.h>
+#include <gfx/SDL_rotozoom.h>
+#include <gfx/SDL_gfxPrimitives.h>
 #include <cstdio>
 
 #define nullptr NULL

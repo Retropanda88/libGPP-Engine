@@ -1,4 +1,4 @@
-#include <engine/Sprite.h>
+#include <sprite/Sprite.h>
 #include <SDL/SDL_image.h>
 
 

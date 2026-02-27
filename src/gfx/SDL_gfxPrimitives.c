@@ -11,8 +11,8 @@
 #include <math.h>
 #include <string.h>
 
-#include <engine/SDL_gfxPrimitives.h>
-#include <engine/SDL_gfxPrimitives_font.h>
+#include <gfx/SDL_gfxPrimitives.h>
+#include <gfx/SDL_gfxPrimitives_font.h>
 
 /* -===================- */
 

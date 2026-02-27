@@ -30,7 +30,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <engine/SFont.h>
+#include <font/SFont.h>
 #include <engine/log.h>
 
 
