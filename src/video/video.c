@@ -13,7 +13,7 @@
 #include <engine/types.h>
 #include <video/video.h>
 #include <string.h>
-#include <engine/font.h>
+#include <font/font.h>
 
 #ifdef PSP_BUILD
 #include <engine/psp_sdk.h>

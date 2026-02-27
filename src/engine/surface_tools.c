@@ -8,8 +8,8 @@
 	 */
 #include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
-#include <engine/SDL_rotozoom.h>
-#include <engine/SDL_gfxPrimitives.h>
+#include <gfx/SDL_rotozoom.h>
+#include <gfx/SDL_gfxPrimitives.h>
 #include <video/video.h>
 #include <engine/types.h>
 #include <math.h>

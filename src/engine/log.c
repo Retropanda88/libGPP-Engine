@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #include <SDL/SDL.h>
-#include <engine/font.h>
+#include <font/font.h>
 
 #define MAX_LINES 20
 #define MAX_LINE_LENGTH 256

@@ -8,8 +8,8 @@
 #include <font/gfxFont.h>
 
 
-#include <engine/SDL_gfxPrimitives.h>
-#include <engine/SDL_rotozoom.h>
+#include <gfx/SDL_gfxPrimitives.h>
+#include <gfx/SDL_rotozoom.h>
 
 #include <sprite/Sprite.h>
 
