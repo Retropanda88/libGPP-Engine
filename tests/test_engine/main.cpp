@@ -11,6 +11,15 @@
 SDL_Surface *img = NULL;
 SDL_Surface *img_scaled = NULL;
 SDL_Surface *set = NULL;
+Cmixer mixer;
+CSample sfxA;
+CSample sfxB;
+CSample sfxX;
+CSample sfxY;
+CSample sfxL;
+CSample sfxR;
+CSample sfxStart;
+CSample sfxSelect;
 
 gfxFont font;
 
@@ -37,6 +46,17 @@ void load_surface()
     apply_alpha(set, 180);
 
     font.init();
+
+    mixer.init(11025,2,512,100);
+
+    sfxA.Load("sfx/bonus.wav");
+    sfxB.Load("sfx/dead2.wav");
+    sfxX.Load("sfx/invisible.wav");
+    sfxY.Load("sfx/juice.wav");
+    sfxL.Load("sfx/mapend2.wav");
+    sfxR.Load("sfx/trapdoor.wav");
+    sfxStart.Load("sfx/teleport.wav");
+    sfxSelect.Load("sfx/freeze.wav");
 }
 
 
@@ -59,7 +79,7 @@ void update_game()
 
     for (int i = 0; i < 12; i++)
     {
-        if (Input::isDown(0, buttons[i]))
+        if (Input::isPressed(0, buttons[i]))
         {
             switch (buttons[i])
             {
@@ -83,45 +103,53 @@ void update_game()
                     lastButton = "DOWN";
                     break;
 
-                case BUTTON_A:
-                    markerX = 250; markerY = 122;
-                    lastButton = "A";
-                    break;
+case BUTTON_A:
+    markerX = 250; markerY = 122;
+    lastButton = "A";
+    mixer.playChannel(&sfxA,-1,0,100);
+    break;
 
-                case BUTTON_B:
-                    markerX = 225; markerY = 140;
-                    lastButton = "B";
-                    break;
+case BUTTON_B:
+    markerX = 225; markerY = 140;
+    lastButton = "B";
+    mixer.playChannel(&sfxB,-1,0,100);
+    break;
 
-                case BUTTON_X:
-                    markerX = 226; markerY = 104;
-                    lastButton = "X";
-                    break;
+case BUTTON_X:
+    markerX = 226; markerY = 104;
+    lastButton = "X";
+    mixer.playChannel(&sfxX,-1,0,100);
+    break;
 
-                case BUTTON_Y:
-                    markerX = 201; markerY = 123;
-                    lastButton = "Y";
-                    break;
+case BUTTON_Y:
+    markerX = 201; markerY = 123;
+    lastButton = "Y";
+    mixer.playChannel(&sfxY,-1,0,100);
+    break;
 
-                case BUTTON_L1:
-                    markerX = 70; markerY = 60;
-                    lastButton = "L1";
-                    break;
+case BUTTON_L1:
+    markerX = 70; markerY = 60;
+    lastButton = "L1";
+    mixer.playChannel(&sfxL,-1,0,100);
+    break;
 
-                case BUTTON_R1:
-                    markerX = 232; markerY = 60;
-                    lastButton = "R1";
-                    break;
+case BUTTON_R1:
+    markerX = 232; markerY = 60;
+    lastButton = "R1";
+    mixer.playChannel(&sfxR,-1,0,100);
+    break;
 
-                case BUTTON_START:
-                    markerX = 158; markerY = 128;
-                    lastButton = "START";
-                    break;
+case BUTTON_START:
+    markerX = 158; markerY = 128;
+    lastButton = "START";
+    mixer.playChannel(&sfxStart,-1,0,100);
+    break;
 
-                case BUTTON_SELECT:
-                    markerX = 130; markerY = 128;
-                    lastButton = "SELECT";
-                    break;
+case BUTTON_SELECT:
+    markerX = 130; markerY = 128;
+    lastButton = "SELECT";
+    mixer.playChannel(&sfxSelect,-1,0,100);
+    break;
             }
             break; // Solo detecta un botón por frame
         }
@@ -169,6 +197,9 @@ int main(int argc, char **argv)
 
     Input::init();
     load_surface();
+
+    //mixer.loadMusic("music.wav",true);
+    //mixer.playMusic();
 
     while (1)
     {

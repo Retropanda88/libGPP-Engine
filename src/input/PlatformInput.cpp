@@ -13,6 +13,11 @@
     #include <SDL/SDL.h>
 #endif
 
+#if defined(GC_BUILD)
+    #include <gccore.h>
+    #include <ogc/pad.h>
+#endif
+
 #if defined(PSP_BUILD)
     #include <pspctrl.h>
 #endif
@@ -54,6 +59,10 @@ void PlatformInput::initHardware()
 
     sceCtrlSetSamplingCycle(0);
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+
+#elif defined(GC_BUILD)
+
+    PAD_Init();
 
 
 #elif defined(PS2_BUILD)
@@ -123,6 +132,11 @@ void PlatformInput::detectDevices(InputSystem* system)
     system->setConnected(1, INPUT_FALSE);
 
 #elif defined(PS2_BUILD)
+
+    system->setConnected(0, INPUT_TRUE);
+    system->setConnected(1, INPUT_FALSE);
+
+#elif defined(GC_BUILD)
 
     system->setConnected(0, INPUT_TRUE);
     system->setConnected(1, INPUT_FALSE);
@@ -259,10 +273,10 @@ void PlatformInput::poll(InputSystem* system)
         u32 paddata = 0xffff ^ buttons.btns;
         u32 mask = 0;
 
-        if (paddata & PAD_CROSS)     mask |= (1u << BUTTON_A);
-        if (paddata & PAD_CIRCLE)    mask |= (1u << BUTTON_B);
-        if (paddata & PAD_SQUARE)    mask |= (1u << BUTTON_X);
-        if (paddata & PAD_TRIANGLE)  mask |= (1u << BUTTON_Y);
+        if (paddata & PAD_CROSS)     mask |= (1u << BUTTON_B);
+        if (paddata & PAD_CIRCLE)    mask |= (1u << BUTTON_A);
+        if (paddata & PAD_SQUARE)    mask |= (1u << BUTTON_Y);
+        if (paddata & PAD_TRIANGLE)  mask |= (1u << BUTTON_X);
 
         if (paddata & PAD_L1)        mask |= (1u << BUTTON_L1);
         if (paddata & PAD_R1)        mask |= (1u << BUTTON_R1);
@@ -277,6 +291,44 @@ void PlatformInput::poll(InputSystem* system)
 
         system->setPlayerState(0, mask);
     }
+
+#elif defined(GC_BUILD)
+
+    PAD_ScanPads();
+
+    u32 held = PAD_ButtonsHeld(0);
+    u32 mask = 0;
+
+    if (held & PAD_BUTTON_A)       mask |= (1u << BUTTON_A);
+    if (held & PAD_BUTTON_B)       mask |= (1u << BUTTON_B);
+    if (held & PAD_BUTTON_X)       mask |= (1u << BUTTON_X);
+    if (held & PAD_BUTTON_Y)       mask |= (1u << BUTTON_Y);
+
+    if (held & PAD_TRIGGER_L)      mask |= (1u << BUTTON_L1);
+    if (held & PAD_TRIGGER_R)      mask |= (1u << BUTTON_R1);
+
+    if (held & PAD_BUTTON_START)   mask |= (1u << BUTTON_START);
+
+    // SELECT lo mapeamos al botón Z
+    if (held & PAD_TRIGGER_Z)      mask |= (1u << BUTTON_SELECT);
+
+    if (held & PAD_BUTTON_UP)      mask |= (1u << BUTTON_UP);
+    if (held & PAD_BUTTON_DOWN)    mask |= (1u << BUTTON_DOWN);
+    if (held & PAD_BUTTON_LEFT)    mask |= (1u << BUTTON_LEFT);
+    if (held & PAD_BUTTON_RIGHT)   mask |= (1u << BUTTON_RIGHT);
+
+    // Stick analógico
+    s8 stickX = PAD_StickX(0);
+    s8 stickY = PAD_StickY(0);
+
+    const int DEADZONE = 30;
+
+    if (stickX < -DEADZONE) mask |= (1u << BUTTON_LEFT);
+    if (stickX >  DEADZONE) mask |= (1u << BUTTON_RIGHT);
+    if (stickY < -DEADZONE) mask |= (1u << BUTTON_UP);
+    if (stickY >  DEADZONE) mask |= (1u << BUTTON_DOWN);
+
+    system->setPlayerState(0, mask);
 
 #endif
 }

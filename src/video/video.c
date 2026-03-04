@@ -82,8 +82,6 @@ int Init_Sistem(const char *msg)
 #ifdef PS2_BUILD
 	int main_id = GetThreadId();
 	ChangeThreadPriority(main_id, 72);
-	/* inicializar FS primero */
-	//fs_init();
 #endif
 
 	// Inicializa SDL con video y temporizador
