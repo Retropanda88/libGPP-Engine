@@ -47,7 +47,7 @@ void load_surface()
 
     font.init();
 
-    mixer.init(11025,2,512,100);
+    mixer.init(11025,2,256,100);
 
     sfxA.Load("sfx/bonus.wav");
     sfxB.Load("sfx/dead2.wav");
@@ -198,7 +198,7 @@ int main(int argc, char **argv)
     Input::init();
     load_surface();
 
-    //mixer.loadMusic("music.wav",true);
+    //mixer.loadMusic("musica/music.wav",true);
     //mixer.playMusic();
 
     while (1)

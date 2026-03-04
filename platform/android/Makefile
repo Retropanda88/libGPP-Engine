@@ -24,7 +24,7 @@ CC  ?= gcc
 CXX ?= g++
 
 CFLAGS   = -O3 -Wall -DANDROID_BUILD `sdl-config --cflags` -I$(INC_DIR) -I$(INC_DIR)/engine
-CXXFLAGS = -O3 -Wall `sdl-config --cflags` -I$(INC_DIR) -I$(INC_DIR)/engine
+CXXFLAGS = -O3 -Wall  -DANDROID_BUILD `sdl-config --cflags` -I$(INC_DIR) -I$(INC_DIR)/engine
 LDFLAGS  = `sdl-config --libs` -lSDL_image
 
 # Fuentes del engine

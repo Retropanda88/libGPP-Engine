@@ -1,5 +1,3 @@
-
-
 #include <input/PlatformInput.h>
 #include <input/InputSystem.h>
 
