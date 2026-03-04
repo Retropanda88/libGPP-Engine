@@ -47,7 +47,7 @@ void load_surface()
 
     font.init();
 
-    mixer.init(11025,2,256,100);
+    mixer.init(11025,2,512,100);
 
     sfxA.Load("sfx/bonus.wav");
     sfxB.Load("sfx/dead2.wav");
@@ -189,6 +189,8 @@ void render_game()
 
 int main(int argc, char **argv)
 {
+
+
     if (Init_Sistem("libGPP-Engine Input Test") != 0)
         return 1;
 
@@ -198,8 +200,8 @@ int main(int argc, char **argv)
     Input::init();
     load_surface();
 
-    //mixer.loadMusic("musica/music.wav",true);
-    //mixer.playMusic();
+    mixer.loadMusic("musica/music.wav",true);
+    mixer.playMusic();
 
     while (1)
     {

@@ -330,3 +330,4 @@ void PlatformInput::poll(InputSystem* system)
 
 #endif
 }
+

@@ -78,10 +78,12 @@ int Init_Sistem(const char *msg)
 	PSP_SetupCallbacks();
 #endif
 
-	// Inicialización específica para PS2 en audio
+
 #ifdef PS2_BUILD
-	int main_id = GetThreadId();
-	ChangeThreadPriority(main_id, 72);
+	printf("change thread priority for audio\n");
+   int main_id = GetThreadId();
+   ChangeThreadPriority(main_id, 72);
+
 #endif
 
 	// Inicializa SDL con video y temporizador
@@ -90,6 +92,7 @@ int Init_Sistem(const char *msg)
 		printf("error: %s\n", SDL_GetError());
 		return -1;
 	}
+
 
 	// Imprime mensaje solo si no es NULL
 	if (msg)

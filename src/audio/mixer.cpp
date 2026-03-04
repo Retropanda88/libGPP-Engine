@@ -20,7 +20,6 @@ typedef struct
 } WAV_FMT;
 
 
-
 Cmixer::Cmixer()
 {
 
@@ -163,9 +162,7 @@ static u32 read_u32_le(FS_FILE * f)
 
 bool Cmixer::loadMusic(const char *filename, bool loop)
 {
-	FILE *f = fopen("debug.txt", "w");
-	if (!f)
-		return false;
+
 
 	/* cerrar archivo anterior */
 	if (music.fp)
@@ -178,12 +175,11 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 	music.fp = fs_open(filename, "rb");
 	if (!music.fp)
 	{
-		fprintf(f, "ERROR: file not found %s\n", filename);
-		fclose(f);
+		printf("ERROR: file not found %s\n", filename);
 		return false;
 	}
 
-	fprintf(f, "File loaded from: %s\n", filename);
+	printf("File loaded from: %s\n", filename);
 
 	/* ===== RIFF ===== */
 	char id[4];
@@ -191,8 +187,7 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 	fs_read(id, 1, 4, music.fp);
 	if (strncmp(id, "RIFF", 4) != 0)
 	{
-		fprintf(f, "ERROR: not RIFF\n");
-		fclose(f);
+		printf("ERROR: not RIFF\n");
 		return false;
 	}
 
@@ -201,12 +196,11 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 	fs_read(id, 1, 4, music.fp);
 	if (strncmp(id, "WAVE", 4) != 0)
 	{
-		fprintf(f, "ERROR: not WAVE\n");
-		fclose(f);
+		printf("ERROR: not WAVE\n");
 		return false;
 	}
 
-	fprintf(f, "RIFF/WAVE OK\n");
+	printf("RIFF/WAVE OK\n");
 
 	/* ===== buscar chunks ===== */
 	char chunkId[4];
@@ -230,8 +224,7 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 		{
 			fs_read(&fmt, sizeof(WAV_FMT), 1, music.fp);
 
-			fprintf(f,
-					"FMT: format=%u channels=%u rate=%u bits=%u\n",
+			printf("FMT: format=%u channels=%u rate=%u bits=%u\n",
 					fmt.audioFormat, fmt.channels, fmt.sampleRate, fmt.bitsPerSample);
 
 			/* saltar bytes extra si fmt > 16 */
@@ -244,7 +237,7 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 			music.len = chunkSize;
 			music.dataStart = fs_tell(music.fp);
 
-			fprintf(f, "DATA: start=%u size=%u\n", (u32) music.dataStart, music.len);
+			printf("DATA: start=%u size=%u\n", (u32) music.dataStart, music.len);
 
 			break;				/* ya no necesitamos más chunks */
 		}
@@ -259,7 +252,7 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 		}
 	}
 
-	fprintf(f, "dataStart=%u len=%u\n", music.dataStart, music.len);
+	printf("dataStart=%u len=%u\n", music.dataStart, music.len);
 
 	/* ===== prueba de lectura real ===== */
 	if (music.len > 0)
@@ -269,14 +262,14 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 		fs_seek(music.fp, music.dataStart, FS_SEEK_SET);
 		fs_read(test, 1, 16, music.fp);
 
-		fprintf(f, "audio bytes: ");
+		printf( "audio bytes: ");
 		for (int i = 0; i < 16; i++)
-			fprintf(f, "%02X ", test[i]);
-		fprintf(f, "\n");
+			printf( "%02X ", test[i]);
+		printf("\n");
 	}
 	else
 	{
-		fprintf(f, "ERROR: data chunk not found\n");
+		printf("ERROR: data chunk not found\n");
 	}
 
 	/* ===== estado inicial ===== */
@@ -286,8 +279,7 @@ bool Cmixer::loadMusic(const char *filename, bool loop)
 	music.position = 0;
 	memset(music.buffer, 0, sizeof(music.buffer));
 
-	fprintf(f, "loadMusic OK\n");
-	fclose(f);
+	printf("loadMusic OK\n");
 	return true;
 }
 
