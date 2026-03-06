@@ -64,7 +64,7 @@ void drawMenu()
 
         if(i == selected)
         {
-            color = color_rgb(0,0,255);
+            color = color_rgb(0,100,255);
             print_f(60, y, color, "> %s", tests[i]);
         }
         else
