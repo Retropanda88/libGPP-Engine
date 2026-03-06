@@ -1,6 +1,7 @@
 #include <engine/engine.h>
 
 #define NUM_TESTS 6
+#define NUM_TESTS_VIDEO 4
 
 // ==============================
 // Variables Globales
@@ -10,12 +11,11 @@ SDL_Surface *temp = NULL;
 Cmixer mixer;
 
 const char *tests[NUM_TESTS] = {
-	"Video Test",
-	"Sound Test",
-	"Font Test",
-	"Input Test",
-	"File System Test",
-	"Sprite Test"
+	"Video", "Sound","Font", "Input", "File System","Sprites"
+};
+
+const char *videoTest[NUM_TESTS_VIDEO]={
+	"RGB"
 };
 
 int selected = 0;
@@ -26,7 +26,7 @@ int selected = 0;
 float scroll_x = 320;
 
 const char *scroll_text =
-"LIBGPP-ENGINE DEMO - USE DPAD UP/DOWN TO SELECT A TEST - PRESS A TO RUN THE TEST - PRESS SELECT TO EXIT";
+	"LIBGPP-ENGINE DEMO - USE DPAD UP/DOWN TO SELECT A TEST - PRESS A TO RUN THE TEST - PRESS SELECT TO EXIT";
 
 
 // ==============================
@@ -36,9 +36,9 @@ void drawTable()
 {
 	u32 red = color_rgb(0, 255, 255);
 
-	draw_line_fast(logic, 1, 2, 318, 2, red);
-	draw_line_fast(logic, 1, 238, 318, 238, red);
-	draw_line_fast(logic, 1, 2, 1, 238, red);
+	draw_line_fast(logic, 0, 2, 318, 2, red);
+	draw_line_fast(logic, 0, 238, 318, 238, red);
+	draw_line_fast(logic, 0, 2, 0, 238, red);
 	draw_line_fast(logic, 318, 2, 318, 238, red);
 
 	draw_line_fast(logic, 2, 25, 318, 25, red);
@@ -67,6 +67,9 @@ void init()
 void drawMenu()
 {
 	int y = 60;
+	int x = 80;
+	//int x_r = x + 20;
+	int x_r = x + 40;
 
 	for (int i = 0; i < NUM_TESTS; i++)
 	{
@@ -74,12 +77,12 @@ void drawMenu()
 
 		if (i == selected)
 		{
-			color = color_rgb(0, 100, 255);
-			print_f(60, y, color, "> %s", tests[i]);
+			color = color_rgb(255, 255, 0);
+			print_f(x, y, color, "> %s", tests[i]);
 		}
 		else
 		{
-			print_f(80, y, color, "%s", tests[i]);
+			print_f(x_r, y, color, "%s", tests[i]);
 		}
 
 		y += 20;
