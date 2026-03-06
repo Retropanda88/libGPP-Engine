@@ -15,6 +15,9 @@
 #include <string.h>
 #include <font/font.h>
 
+#include <engine/surface_tools.h>
+#include <engine/startup_png.h>
+
 #ifdef PSP_BUILD
 #include <engine/psp_sdk.h>
 #endif
@@ -175,6 +178,61 @@ int Set_Video(void)
 	}
 
 	return 0;
+}
+
+
+void startup()
+{
+	SDL_Surface *temp = NULL;
+
+	// cargar imagen desde memoria
+	temp = load_texture_from_mem((u8*)startup_data, startup_size);
+
+	if (!temp)
+		return;
+
+	// ==========================
+	// FADE IN
+	// ==========================
+	for (int alpha = 0; alpha <= 255; alpha += 5)
+	{
+		apply_alpha(temp, alpha);
+
+		cls();
+
+		draw_surface(temp, 0, 0);
+
+		Render();
+		Fps_sincronizar(10);
+	}
+
+	// pequeña pausa
+	for (int i = 0; i < 40; i++)
+	{
+		cls();
+		draw_surface(temp, 0, 0);
+
+		Render();
+		Fps_sincronizar(60);
+	}
+
+	// ==========================
+	// FADE OUT
+	// ==========================
+	for (int alpha = 255; alpha >= 0; alpha -= 5)
+	{
+		apply_alpha(temp, alpha);
+
+		cls();
+
+		draw_surface(temp, 0, 0);
+
+		Render();
+		Fps_sincronizar(10);
+	}
+
+	SDL_FreeSurface(temp);
+	SDL_Delay(1000);
 }
 
 

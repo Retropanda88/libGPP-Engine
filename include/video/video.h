@@ -69,6 +69,9 @@ int Init_Sistem(const char *msg);
  */
 int Set_Video(void);
 
+/*startup logo*/
+void startup();
+
 /**
  * @brief Retrieves the current video resolution.
  *
