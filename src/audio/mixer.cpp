@@ -289,6 +289,26 @@ void Cmixer::playMusic()
 	music.active = true;
 }
 
+void Cmixer::stopMusic()
+{
+	if (!music.fp)
+		return;
+
+	music.active = false;
+	music.buffered = 0;
+
+	// regresar al inicio del chunk data
+	fs_seek(music.fp, music.dataStart, FS_SEEK_SET);
+}
+
+void Cmixer::pauseMusic()
+{
+	if (!music.fp)
+		return;
+
+	music.active = !music.active;
+}
+
 
 void Cmixer::streamMusic(void)
 {

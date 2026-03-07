@@ -1,6 +1,13 @@
 #include <engine/engine.h>
 
-#define NUM_TESTS 6
+#include "video_demo.h"
+#include "font_demo.h"
+#include "input_demo.h"
+#include "sprite_demo.h"
+#include "gfx_demo.h"
+#include "fs_demo.h"
+
+#define NUM_TESTS 9
 #define NUM_TESTS_VIDEO 4
 
 // ==============================
@@ -11,12 +18,39 @@ SDL_Surface *temp = NULL;
 Cmixer mixer;
 
 const char *tests[NUM_TESTS] = {
-	"Video", "Sound","Font", "Input", "File System","Sprites"
+	"Video", "Sound", "Font", "Input", "File System", "Sprites", "Gfx", "Creditos", "exit"
 };
 
-const char *videoTest[NUM_TESTS_VIDEO]={
-	"RGB"
+const char *credits[] = {
+	"LIBGPP-ENGINE",
+	"",
+	"Created by",
+	"Andres Ruiz Perez",
+	"",
+	"Programming",
+	"Andres Ruiz Perez",
+	"",
+	"Engine",
+	"libGPP-Engine",
+	"",
+	"Libraries",
+	"SDL 1.2",
+	"",
+	"Platforms",
+	"Android",
+	"PC",
+	"PlayStation 2",
+	"GameCube",
+	"PSP",
+	"",
+	"Special Thanks",
+	"Homebrew Community",
+	"DevKitPro",
+	"PS2SDK Developers"
 };
+
+#define NUM_CREDITS 24
+
 
 int selected = 0;
 
@@ -24,9 +58,54 @@ int selected = 0;
 // Texto desplazable
 // ==============================
 float scroll_x = 320;
+float credits_y = 260;
 
 const char *scroll_text =
 	"LIBGPP-ENGINE DEMO - USE DPAD UP/DOWN TO SELECT A TEST - PRESS A TO RUN THE TEST - PRESS SELECT TO EXIT";
+
+
+void print_center(int y, u32 color, const char *text)
+{
+	int x = (320 / 2) - (strlen(text) * 4);
+	print_f(x, y, color, "%s", text);
+}
+
+
+void credits_demo()
+{
+	int exit = 0;
+
+	while (!exit)
+	{
+		Input::update();
+
+		if (Input::isPressed(0, BUTTON_B))
+			exit = 1;
+
+		cls();
+
+		int y = credits_y;
+
+		for (int i = 0; i < NUM_CREDITS; i++)
+		{
+			int x = (320 / 2) - (strlen(credits[i]) * 4);
+
+			print_f(x, y, color_rgb(255, 255, 255), "%s", credits[i]);
+
+			y += 20;
+		}
+
+		credits_y -= 0.5;
+
+		if (credits_y < -500)
+			exit = 1;
+
+
+		Render();
+		Fps_sincronizar(10);
+	}
+	credits_y = 260;
+}
 
 
 // ==============================
@@ -66,9 +145,9 @@ void init()
 // ==============================
 void drawMenu()
 {
-	int y = 60;
+	int y = 40;
 	int x = 80;
-	//int x_r = x + 20;
+	// int x_r = x + 20;
 	int x_r = x + 40;
 
 	for (int i = 0; i < NUM_TESTS; i++)
@@ -86,6 +165,66 @@ void drawMenu()
 		}
 
 		y += 20;
+	}
+}
+
+void runTest()
+{
+
+	switch (selected)
+	{
+	case 0:
+		video_demo();
+		break;
+
+	case 1:
+	   cls();
+	   Render();
+		mixer.stopMusic();
+        SDL_Delay(1000);
+		mixer.playMusic();
+
+		Input::update();
+
+		if (Input::isPressed(0, BUTTON_B))
+
+		cls();
+
+		print_f(120, 100, color_rgb(255, 255, 255), "SOUND DEMO OK");
+		//print_f(100, 130, color_rgb(255, 255, 0), "PRESS B TO RETURN");
+
+		Render();
+		SDL_Delay(4000);
+		
+		break;
+
+	case 2:
+		font_demo();
+		break;
+
+	case 3:
+		input_demo();
+		break;
+
+	case 4:
+		fs_demo();
+		break;
+
+	case 5:
+		sprite_demo();
+		break;
+
+	case 6:
+		gfx_demo();
+		break;
+
+	case 7:
+		credits_demo();
+		break;
+
+	case 8:
+		done = 1;
+		break;
 	}
 }
 
@@ -122,6 +261,11 @@ void update()
 	// salir del programa
 	if (Input::isPressed(0, BUTTON_SELECT))
 		done = 1;
+
+	if (Input::isPressed(0, BUTTON_A))
+	{
+		runTest();
+	}
 }
 
 
