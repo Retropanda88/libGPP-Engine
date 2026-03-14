@@ -298,7 +298,7 @@ int main(int argc, char **argv)
 	if (Set_Video() < 0)
 		return 1;
 
-	if (!mixer.init(22050, 2, 1024, 100))
+	if (!mixer.init(22050, 2, 512 , 100))
 		return 1;
 
 	init();

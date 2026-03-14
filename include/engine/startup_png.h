@@ -1,9 +1,8 @@
 #ifndef startup_H
 #define startup_H
 
-#include <stdint.h>
-typedef uint8_t u8;
-typedef uint32_t u32;
+#include <engine/types.h>
+
 
 static const u8 startup_data[19583] = {
 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,

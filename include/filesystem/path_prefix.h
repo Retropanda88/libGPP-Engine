@@ -10,6 +10,8 @@
 
 #define PREFIX       "ms0:/PSP/GAME/"
 #define PREFIX_SAVE  "ms0:/PSP/GAME/"
+//#define PREFIX       ""
+//#define PREFIX_SAVE  ""
 
 #elif defined(GC_BUILD)
 

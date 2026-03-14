@@ -194,7 +194,8 @@ void startup()
 	// ==========================
 	// FADE IN
 	// ==========================
-	for (int alpha = 0; alpha <= 255; alpha += 5)
+	int alpha;
+	for (alpha = 0; alpha <= 255; alpha += 5)
 	{
 		apply_alpha(temp, alpha);
 
@@ -207,7 +208,8 @@ void startup()
 	}
 
 	// pequeña pausa
-	for (int i = 0; i < 40; i++)
+	int i;
+	for (i = 0; i < 40; i++)
 	{
 		cls();
 		draw_surface(temp, 0, 0);
@@ -219,7 +221,7 @@ void startup()
 	// ==========================
 	// FADE OUT
 	// ==========================
-	for (int alpha = 255; alpha >= 0; alpha -= 5)
+	for (alpha = 255; alpha >= 0; alpha -= 5)
 	{
 		apply_alpha(temp, alpha);
 
