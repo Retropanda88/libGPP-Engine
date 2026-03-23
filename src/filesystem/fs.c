@@ -119,7 +119,7 @@ const char *fs_make_path(const char *relative)
     if (!relative)
         return NULL;
 
-#if defined(PSP_BUILD)
+/*#if defined(PSP_BUILD)
     char app_folder[128] = {0};
 
     // Obtener ruta completa del EBOOT.PBP
@@ -142,13 +142,13 @@ const char *fs_make_path(const char *relative)
                 app_folder[len] = '\0';
             }
         }
-    }
+    }*/
 
-    snprintf(full_path, sizeof(full_path), "%s%s/%s", PREFIX, app_folder, relative);
+   // snprintf(full_path, sizeof(full_path), "%s%s/%s", PREFIX, app_folder, relative);
 
-#else
+//#else
     snprintf(full_path, sizeof(full_path), "%s%s", PREFIX, relative);
-#endif
+//#endif
 
     return full_path;
 }
