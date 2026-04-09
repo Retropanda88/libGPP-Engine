@@ -1,0 +1,39 @@
+libGPP-Engine 
+     include 
+     platform
+     src
+     tests
+     makefile
+     
+        include 
+            audio
+            engine
+            input
+            math
+            physics
+            resources
+            video
+
+            platform
+            android
+              makefile
+            gamecube
+              makefile
+            ps2
+              makefile
+            psp
+              makefile
+            pc
+              makefile
+
+        src
+            audio
+            engine
+            input
+            math
+            physics
+            resources
+            video
+
+         tests
+           test_engine
