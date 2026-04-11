@@ -1,5 +1,5 @@
-#ifndef MIXER_H_
-#define MIXER_H_
+#ifndef CMIXER_H_
+#define CMIXER_H_
 
 #include <engine/types.h>
 #include <audio/sample.h>
@@ -12,42 +12,41 @@
 
 class Cmixer
 {
-  public:
-	Cmixer();
-	~Cmixer();
+public:
+    Cmixer();
+    ~Cmixer();
 
-	bool init(int freq, int channels, int bufferSize);
+    bool init(int freq, int channels, int bufferSize);
 
-	/* SFX */
-	int playChannel(CSample * s, bool loop, int volume);
-	void stopChannel(int id);
-	void stopAll();
+    /* SFX */
+    int playChannel(CSample *s, bool loop, int volume, int channel = -1);
+    void stopChannel(int id);
+    void stopAll();
 
-	/* MUSIC */
-	bool playMusic(const char *filename, bool loop);
-	void stopMusic();
+    /* MUSIC */
+    bool playMusic(const char *filename, bool loop);
+    void stopMusic();
 
-	void setMasterVolume(int vol);
+    void setMasterVolume(int vol);
 
-	/* MIX */
-	void mix(u8 * stream, int len);
+    /* MIX */
+    void mix(u8 *stream, int len);
 
-  private:
-	  CSample channels[MAX_CHANNELS];
-	int masterVolume;
+private:
+    CSample channels[MAX_CHANNELS];
+    int masterVolume;
 
-	/* sistema de música */
-	MusicStream musicStream;
-	IAudioDecoder *decoder;
+    /* música */
+    MusicStream musicStream;
+    IAudioDecoder *decoder;
 
-	SDL_AudioSpec spec;
+    SDL_AudioSpec spec;
 
-	/* utils */
-	bool isWav(const char *filename);
-	bool isMp3(const char *filename);
+    /* utils */
+    bool isWav(const char *filename);
+    bool isMp3(const char *filename);
 
-	static void audioCallback(void *userdata, u8 * stream, int len);
+    static void audioCallback(void *userdata, u8 *stream, int len);
 };
-
 
 #endif

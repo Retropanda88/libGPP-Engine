@@ -3,8 +3,6 @@
 
 #include <engine/types.h>
 #include <audio/IAudioDecoder.h>
-#include <audio/CircularBuffer.h>
-#include <SDL/SDL.h>
 
 class MusicStream
 {
@@ -20,16 +18,8 @@ public:
 
 private:
     IAudioDecoder* decoder;
-    CircularBuffer buffer;
-
-    SDL_Thread* thread;
-    SDL_mutex* mutex;
-
-    bool running;
+    bool playing;
     bool looping;
-
-    static int threadFunc(void* data);
-    void streamLoop();
 };
 
 #endif

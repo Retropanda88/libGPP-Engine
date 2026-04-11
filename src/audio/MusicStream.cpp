@@ -1,114 +1,72 @@
 #include <audio/MusicStream.h>
 #include <string.h>
-#include <engine/log.h>
 
 MusicStream::MusicStream()
 {
-	decoder = NULL;
-	thread = NULL;
-	mutex = SDL_CreateMutex();
-
-	running = false;
-	looping = false;
-
-	 buffer.init(65536); // 64 KB buffer
-	
+    decoder = NULL;
+    playing = false;
+    looping = false;
 }
 
 MusicStream::~MusicStream()
 {
-	stop();
-
-	if (mutex)
-		SDL_DestroyMutex(mutex);
+    stop();
 }
 
-bool MusicStream::open(IAudioDecoder * dec, bool loop)
+bool MusicStream::open(IAudioDecoder* dec, bool loop)
 {
-	decoder = dec;
-	looping = loop;
+    decoder = dec;
+    looping = loop;
+    playing = false;
 
-	buffer.clear();
-
-	return (decoder != NULL);
+    return (decoder != NULL);
 }
 
 void MusicStream::play()
 {
-	if (!decoder)
-		return;
+    if (!decoder)
+        return;
 
-	running = true;
-
-	thread = SDL_CreateThread(threadFunc, this);
+    playing = true;
 }
 
 void MusicStream::stop()
 {
-	running = false;
-
-	if (thread)
-	{
-		SDL_WaitThread(thread, NULL);
-		thread = NULL;
-	}
+    playing = false;
 }
 
-int MusicStream::threadFunc(void *data)
+int MusicStream::read(u8* out, int len)
 {
-	MusicStream *ms = (MusicStream *) data;
-	ms->streamLoop();
-	return 0;
-}
+    if (!playing || !decoder)
+    {
+        memset(out, 0, len);
+        return len;
+    }
 
-void MusicStream::streamLoop()
-{
-	u8 temp[4096];
+    int total = 0;
 
-	while (running)
-	{
-		SDL_LockMutex(mutex);
+    while (total < len)
+    {
+        int decoded = decoder->decode(out + total, len - total);
 
-		int free = buffer.freeSpace();
+        if (decoded <= 0)
+        {
+            if (looping)
+            {
+                decoder->rewind();
+                continue;
+            }
+            else
+            {
+                // llenar con silencio lo restante
+                memset(out + total, 0, len - total);
+                playing = false;
+                break;
+            }
+        }
 
-		if (free >= (int)sizeof(temp))
-		{
+        total += decoded;
+    }
 
-			int decoded = decoder->decode(temp, sizeof(temp));
-
-
-			if (decoded <= 0)
-			{
-				if (looping)
-				{
-					decoder->rewind();
-				}
-				else
-				{
-					running = false;
-					SDL_UnlockMutex(mutex);
-					break;
-				}
-			}
-			else
-			{
-				buffer.write(temp, decoded);
-			}
-		}
-
-		SDL_UnlockMutex(mutex);
-
-		SDL_Delay(5);
-	}
-}
-
-int MusicStream::read(u8 * out, int len)
-{
-	SDL_LockMutex(mutex);
-
-	int read = buffer.read(out, len);
-
-	SDL_UnlockMutex(mutex);
-
-	return read;
+    return len;
 }

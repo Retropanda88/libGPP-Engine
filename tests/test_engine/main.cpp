@@ -299,7 +299,7 @@ int main(int argc, char **argv)
 		return 1;
 
 
-	if (!mixer.init(22050, 2, 512))
+	if (!mixer.init(22050, 2, 1024))
 		return 1;
 
 	init();
