@@ -1,7 +1,12 @@
 #ifndef SAMPLE_H_
 #define SAMPLE_H_
 
+
 #include <engine/types.h>
+
+#if defined(GC_BUILD)
+#include <gcsound.h>
+#endif
 
 class CSample{
 	public:
@@ -27,8 +32,11 @@ class CSample{
 	      void setActive(bool active){this->active = active;}
 	      void setPosition(int position){this->position = position;}
 	      
-	      
-	      
+	  public:
+#if defined(GC_BUILD)
+    GCSound_Sample *sample;
+#endif   
+
 	  private:
 	       u8 *Data;
 	       int len;

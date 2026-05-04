@@ -1,18 +1,29 @@
 #include <string.h>
 #include <stdio.h>
 
+#if defined(GC_BUILD)
+#include <gcsound.h>
+#endif
+
 #include <audio/mixer.h>
 #include <audio/WavDecoder.h>
 // #include <audio/MP3Decoder.h>
 
 Cmixer::Cmixer()
 {
+#if defined(GC_BUILD)
+    masterVolume = MAX_VOLUME;
+#else
     masterVolume = MAX_VOLUME;
     decoder = NULL;
+#endif
 }
 
 Cmixer::~Cmixer()
 {
+#if defined(GC_BUILD)
+    stopMusic();
+#else
     stopMusic();
 
     if (decoder)
@@ -20,10 +31,16 @@ Cmixer::~Cmixer()
         delete decoder;
         decoder = NULL;
     }
+#endif
 }
 
 bool Cmixer::init(int freq, int channels, int bufferSize)
 {
+#if defined(GC_BUILD)
+    GCSound_Init(); //INICIALIZA GC 
+    return true;
+#else
+    //INICILIZA SDL 
     spec.freq = freq;
     spec.format = AUDIO_S16LSB;
     spec.channels = channels;
@@ -39,6 +56,7 @@ bool Cmixer::init(int freq, int channels, int bufferSize)
 
     SDL_PauseAudio(0);
     return true;
+#endif
 }
 
 /* ========================= */
@@ -67,6 +85,13 @@ bool Cmixer::isMp3(const char *filename)
 
 bool Cmixer::playMusic(const char *filename, bool loop)
 {
+
+#if defined(GC_BUILD)
+
+    GCSound_PlayMusic(filename,0); //en 0 detecta la frecuencia 
+    return true;
+#else
+
     stopMusic();
 
     FS_FILE *fp = fs_open(filename, "rb");
@@ -117,10 +142,16 @@ bool Cmixer::playMusic(const char *filename, bool loop)
 
     musicStream.play();
     return true;
+#endif
 }
+
+///////////////////////////////////////////////////////////////////////
 
 void Cmixer::stopMusic()
 {
+#if defined(GC_BUILD)
+    GCSound_StopMusic();
+#else
     musicStream.stop();
 
     if (decoder)
@@ -128,6 +159,7 @@ void Cmixer::stopMusic()
         delete decoder;
         decoder = NULL;
     }
+#endif
 }
 
 /* ========================= */
@@ -136,6 +168,14 @@ void Cmixer::stopMusic()
 
 int Cmixer::playChannel(CSample *s, bool loop, int volume, int channel)
 {
+
+ #if defined(GC_BUILD)
+    // Ajuste de volumen para GCSound (0-127)
+    int vol_gc = (volume > 127) ? 127 : volume;
+    GCSound_PlaySample(s->sample, vol_gc, vol_gc);
+    return 0;
+#else   
+
     if (!s || !s->getData())
         return -1;
 
@@ -168,6 +208,7 @@ int Cmixer::playChannel(CSample *s, bool loop, int volume, int channel)
     }
 
     return -1;
+#endif
 }
 
 void Cmixer::stopChannel(int id)
@@ -186,9 +227,14 @@ void Cmixer::stopAll()
 
 void Cmixer::setMasterVolume(int vol)
 {
-    if (vol < 0) vol = 0;
+if (vol < 0) vol = 0;
     if (vol > MAX_VOLUME) vol = MAX_VOLUME;
     masterVolume = vol;
+
+#if defined(GC_BUILD)
+    // Esto actualizará la música que está sonando actualmente en la SD
+    GCSound_SetMusicVolume(vol, vol); 
+#endif
 }
 
 /* ========================= */

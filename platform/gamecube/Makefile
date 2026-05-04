@@ -42,7 +42,7 @@ CFLAGS +=
 CXXFLAGS = $(CFLAGS) -fno-rtti -fno-exceptions
 
 GC_LDFLAGS = -L$(DEVKITPRO)/libogc/lib/cube -L$(DEVKITPRO)/portlibs/ppc/lib -Wl,-Map,$(BIN_DIR)/test_gc.map
-GC_LIBS    = -lSDL_image -lSDL_mixer -lSDL -ljpeg -lpng -ltiff -lmikmod -lsmpeg -lmad -laesnd -lstdc++ -lfat -logc -lm -lz
+GC_LIBS    = -lSDL_image -lSDL_mixer -lSDL -ljpeg -lpng -ltiff -lmikmod -lsmpeg -lmad -lgcsound -laesnd -lstdc++ -lfat -logc -lm -lz
 
 # ===========================================================
 #  Fuentes y objetos

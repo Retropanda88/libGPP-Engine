@@ -182,7 +182,7 @@ void runTest()
 		Render();
 		mixer.stopMusic();
 		SDL_Delay(1000);
-		mixer.playMusic("music/music.wav", true);
+		mixer.playMusic("music/music_22050.wav", true);
 
 		Input::update();
 
@@ -299,7 +299,7 @@ int main(int argc, char **argv)
 		return 1;
 
 
-	if (!mixer.init(22050, 2, 1024))
+	if (!mixer.init(22050, 2, 512))
 		return 1;
 
 	init();
@@ -307,17 +307,14 @@ int main(int argc, char **argv)
 
 
 
-	mixer.playMusic("music/music.wav", true);
+	mixer.playMusic("music/music_22050.wav", true);
 
 
 
 	while (!done)
 	{
 		update();
-
-
 		drawFramewire();
-
 		Render();
 		Fps_sincronizar(10);
 		update_log_scroll();

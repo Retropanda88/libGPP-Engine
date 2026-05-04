@@ -5,6 +5,10 @@
 #include <audio/sample.h>
 #include <engine/types.h>
 
+#if defined(GC_BUILD)
+#include <gcsound.h>
+#endif
+
 CSample::CSample()
 {
 	Data = NULL;
@@ -77,6 +81,16 @@ bool CSample::Load(const char *filename)
 		printf("Error: solo se admiten archivos WAV por ahora (%s no soportado)\n", ext);
 		return false;
 	}
+
+#if defined(GC_BUILD)
+	sample = GCSound_LoadSample(filename);
+	if(!sample){
+		printf("error:fichero no encontrado %s\n",filename);
+		return false;
+	}
+	printf("Sample WAV cargado correctamente %s\n",filename);
+	return true;
+#else
 
 	// ----------------------------
 	// 2. Abrir archivo en modo binario
@@ -188,6 +202,7 @@ bool CSample::Load(const char *filename)
 	printf("Sample WAV cargado correctamente (%u bytes)\n", chunkSize);
 
 	return true;				// éxito
+#endif
 }
 
 

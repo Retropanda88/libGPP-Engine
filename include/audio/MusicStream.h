@@ -20,6 +20,7 @@ private:
     IAudioDecoder* decoder;
     bool playing;
     bool looping;
+    char currentFilename[256]; // Guardamos la ruta aquí
 };
 
 #endif

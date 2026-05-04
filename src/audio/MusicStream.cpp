@@ -70,3 +70,4 @@ int MusicStream::read(u8* out, int len)
 
     return len;
 }
+
