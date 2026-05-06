@@ -39,7 +39,7 @@ SDL_Surface *load_img(const char *file)
 }
 
 /* --------------------------------------------------------- */
-int AplyTransparency(SDL_Surface * src, u8 r, u8 g, u8 b)
+int apply_transparency(SDL_Surface * src, u8 r, u8 g, u8 b)
 {
 	return SDL_SetColorKey(src, SDL_SRCCOLORKEY | SDL_RLEACCEL, SDL_MapRGB(src->format, r, g, b));
 }
@@ -1008,7 +1008,7 @@ SDL_Surface *rotozoom_create(SDL_Surface * src, double angle, double zoom)
 		return NULL;			/* FIX */
 	}
 
-	AplyTransparency(temp, 0, 0, 0);
+	apply_transparency(temp, 0, 0, 0);
 	return temp;
 }
 

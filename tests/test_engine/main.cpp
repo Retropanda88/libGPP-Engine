@@ -1,327 +1,226 @@
 #include <engine/engine.h>
+#include <input/Input.h>
+#include <audio/mixer.h>
+#include <audio/sample.h>
+#include <font/gfxFont.h>
+#include <SDL.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "video_demo.h"
-#include "font_demo.h"
-#include "input_demo.h"
-#include "sprite_demo.h"
-#include "gfx_demo.h"
-#include "fs_demo.h"
+// --- INCLUSIÓN DE TUS HEADERS DE TEST ---
+#include "test_graficos.h"
+// #include "tests/audio_test.h"
 
-#define NUM_TESTS 9
-#define NUM_TESTS_VIDEO 4
+#define MAX_TESTS 8
+#define VISIBLE_ITEMS 4
 
-// ==============================
-// Variables Globales
-// ==============================
-int done = 0;
-SDL_Surface *temp = NULL;
-Cmixer mixer;
+// logic es la superficie precalculada del motor
+extern SDL_Surface *logic;
 
-const char *tests[NUM_TESTS] = {
-	"Video", "Sound", "Font", "Input", "File System", "Sprites", "Gfx", "Creditos", "exit"
+// Variables para el Marquee de Retropanda88
+float marqueeX = 320.0f;
+const char *infoText =
+	"DESARROLLADO POR RETROPANDA88 - USE ARRIBA/ABAJO PARA NAVEGAR - BOTON A PARA SELECCIONAR TEST";
+
+// ==========================================================
+// ESTRUCTURAS Y TIPOS
+// ==========================================================
+typedef struct icon
+{
+	SDL_Surface *icon;
+} icon;
+
+typedef void (*TestAction) (void);
+
+struct TestItem
+{
+	const char *title;
+	SDL_Surface *ico;
+	TestAction action;			// Puntero a la función del test
+	float animOffset;
 };
 
-const char *credits[] = {
-	"LIBGPP-ENGINE",
-	"",
-	"Created by",
-	"Andres Ruiz Perez",
-	"",
-	"Programming",
-	"Andres Ruiz Perez",
-	"",
-	"Engine",
-	"libGPP-Engine",
-	"",
-	"Libraries",
-	"SDL 1.2",
-	"",
-	"Platforms",
-	"Android",
-	"PC",
-	"PlayStation 2",
-	"GameCube",
-	"PSP",
-	"",
-	"Special Thanks",
-	"Homebrew Community",
-	"DevKitPro",
-	"PS2SDK Developers"
-};
+// ==========================================================
+// FUNCIONES DE APOYO
+// ==========================================================
 
-#define NUM_CREDITS 24
-
-
-int selected = 0;
-
-// ==============================
-// Texto desplazable
-// ==============================
-float scroll_x = 320;
-float credits_y = 260;
-
-const char *scroll_text =
-	"LIBGPP-ENGINE DEMO - USE DPAD UP/DOWN TO SELECT A TEST - PRESS A TO RUN THE TEST - PRESS SELECT TO EXIT";
-
-
-void print_center(int y, u32 color, const char *text)
+void render_background_gradient(SDL_Surface * s, u32 colorTop, u32 colorBottom)
 {
-	int x = (320 / 2) - (strlen(text) * 4);
-	print_f(x, y, color, "%s", text);
-}
-
-
-void credits_demo()
-{
-	int exit = 0;
-
-	while (!exit)
+	int r1 = (colorTop >> 16) & 0xFF, g1 = (colorTop >> 8) & 0xFF, b1 = colorTop & 0xFF;
+	int r2 = (colorBottom >> 16) & 0xFF, g2 = (colorBottom >> 8) & 0xFF, b2 = colorBottom & 0xFF;
+	for (int i = 0; i < s->h; i++)
 	{
-		Input::update();
-
-		if (Input::isPressed(0, BUTTON_B))
-			exit = 1;
-
-		cls();
-
-		int y = credits_y;
-
-		for (int i = 0; i < NUM_CREDITS; i++)
-		{
-			int x = (320 / 2) - (strlen(credits[i]) * 4);
-
-			print_f(x, y, color_rgb(255, 255, 255), "%s", credits[i]);
-
-			y += 20;
-		}
-
-		credits_y -= 0.5;
-
-		if (credits_y < -500)
-			exit = 1;
-
-
-		Render();
-		Fps_sincronizar(10);
-	}
-	credits_y = 260;
-}
-
-
-// ==============================
-// Dibujar marco de la pantalla
-// ==============================
-void drawTable()
-{
-	u32 red = color_rgb(0, 255, 255);
-
-	draw_line_fast(logic, 0, 2, 318, 2, red);
-	draw_line_fast(logic, 0, 238, 318, 238, red);
-	draw_line_fast(logic, 0, 2, 0, 238, red);
-	draw_line_fast(logic, 318, 2, 318, 238, red);
-
-	draw_line_fast(logic, 2, 25, 318, 25, red);
-}
-
-
-// ==============================
-// Inicialización
-// ==============================
-void init()
-{
-	u32 color1 = color_rgb(180, 0, 0);
-	u32 color2 = color_rgb(0, 0, 0);
-
-	temp = create_surface(320, 240, SDL_SWSURFACE);
-
-	fill_radial_gradient(temp, color2, color1);
-
-	Input::init();
-}
-
-
-// ==============================
-// Dibujar menú
-// ==============================
-void drawMenu()
-{
-	int y = 40;
-	int x = 80;
-	// int x_r = x + 20;
-	int x_r = x + 40;
-
-	for (int i = 0; i < NUM_TESTS; i++)
-	{
-		u32 color = color_rgb(255, 255, 255);
-
-		if (i == selected)
-		{
-			color = color_rgb(255, 255, 0);
-			print_f(x, y, color, "> %s", tests[i]);
-		}
-		else
-		{
-			print_f(x_r, y, color, "%s", tests[i]);
-		}
-
-		y += 20;
+		float f = (float)i / (float)s->h;
+		u8 r = (u8) (r1 + (r2 - r1) * f);
+		u8 g = (u8) (g1 + (g2 - g1) * f);
+		u8 b = (u8) (b1 + (b2 - b1) * f);
+		fill_rect(s, 0, i, s->w, 1, color_rgb(r, g, b));
 	}
 }
 
-void runTest()
+icon *quickLoad(SDL_Surface * sheet, int x, int y, int w, int h, float zoom)
 {
-
-	switch (selected)
-	{
-	case 0:
-		video_demo();
-		break;
-
-	case 1:
-		cls();
-		Render();
-		mixer.stopMusic();
-		SDL_Delay(1000);
-		mixer.playMusic("music/music_22050.wav", true);
-
-		Input::update();
-
-		if (Input::isPressed(0, BUTTON_B))
-
-			cls();
-
-		print_f(120, 100, color_rgb(255, 255, 255), "SOUND DEMO OK");
-		// print_f(100, 130, color_rgb(255, 255, 0), "PRESS B TO RETURN");
-
-		Render();
-		SDL_Delay(4000);
-
-		break;
-
-	case 2:
-		font_demo();
-		break;
-
-	case 3:
-		input_demo();
-		break;
-
-	case 4:
-		fs_demo();
-		break;
-
-	case 5:
-		sprite_demo();
-		break;
-
-	case 6:
-		gfx_demo();
-		break;
-
-	case 7:
-		credits_demo();
-		break;
-
-	case 8:
-		done = 1;
-		break;
-	}
+	icon *temp = (icon *) malloc(sizeof(icon));
+	if (!temp)
+		return NULL;
+	temp->icon = cut_surface(sheet, x, y, w, h);
+	SDL_Surface *scaled = rotozoom_create(temp->icon, 0.0f, zoom);
+	SDL_FreeSurface(temp->icon);
+	temp->icon = scaled;
+	return temp;
 }
 
-
-// ==============================
-// Update
-// ==============================
-void update()
+void renderItem(SDL_Surface * s, TestItem * it, int x, int y, bool sel, bool prs)
 {
-	Input::update();
+	int w = 210, h = 36;
+	float target = sel ? 15.0f : 0.0f;
+	it->animOffset += (target - it->animOffset) * 0.2f;
+	int cx = x + (int)it->animOffset;
 
-	if (Input::isPressed(0, BUTTON_UP))
-	{
-		selected--;
+	u32 bg =
+		prs ? color_rgb(255, 255, 255) : (sel ? color_rgb(40, 60, 120) : color_rgb(20, 20, 35));
+	u32 acc = sel ? color_rgb(0, 255, 255) : color_rgb(60, 60, 80);
 
-		if (selected < 0)
-			selected = NUM_TESTS - 1;
-	}
+	fill_rect(s, cx + 12, y, w - 12, h, bg);
+	fill_triangle_fast(s, cx + 12, y, cx, y + h, cx + 12, y + h, bg);
+	if (it->ico)
+		draw_surface(it->ico, cx - 2, y + (h / 2) - (it->ico->h / 2));
 
-	if (Input::isPressed(0, BUTTON_DOWN))
-	{
-		selected++;
-
-		if (selected >= NUM_TESTS)
-			selected = 0;
-	}
-
-	// mover texto
-	scroll_x -= 0.15;
-
-	if (scroll_x < -900)
-		scroll_x = 320;
-
-	// salir del programa
-	if (Input::isPressed(0, BUTTON_SELECT))
-		done = 1;
-
-	if (Input::isPressed(0, BUTTON_A))
-	{
-		runTest();
-	}
+	print(cx + 42, y + 13, it->title, sel ? color_rgb(255, 255, 255) : color_rgb(160, 160, 170));
+	fill_rect(s, cx + w - 3, y + 4, 2, h - 8, acc);
 }
 
-
-// ==============================
-// Dibujar frame
-// ==============================
-void drawFramewire()
-{
-	draw_surface(temp, 0, 0);
-
-	drawTable();
-
-	print_f(70, 10, color_rgb(255, 255, 255), "libGGP-Engine DEMO");
-
-	drawMenu();
-
-	// texto desplazable
-	print_f(scroll_x, 220, color_rgb(255, 255, 0), scroll_text);
-}
-
-
-// ==============================
-// Programa principal
-// ==============================
+// ==========================================================
+// MAIN
+// ==========================================================
 int main(int argc, char **argv)
 {
-	if (Init_Sistem("Engine test") < 0)
+	if (Init_Sistem("GPP Pro Suite") < 0)
 		return 1;
+	Set_Video();
+	Input::init();
 
-	if (Set_Video() < 0)
-		return 1;
+	gfxFont font;
+	font.init();
 
+	Cmixer mixer;
+	mixer.init(44100, 2, 2048);
+	mixer.playMusic("music/music.wav", true);
 
-	if (!mixer.init(22050, 2, 512))
-		return 1;
+	CSample sfxMove, sfxPush;
+	sfxMove.Load("sfx/button.wav");
+	sfxPush.Load("sfx/push.wav");
 
-	init();
+	SDL_Surface *sheet = load_img("gfx/icon.png");
+
+	icon *icons[MAX_TESTS];
+
+	icons[0] = quickLoad(sheet, 35, 5, 190, 200, 0.2);
+	icons[1] = quickLoad(sheet, 250, 5, 190, 200, 0.2);
+	icons[2] = quickLoad(sheet, 460, 5, 190, 200, 0.2);
+	icons[3] = quickLoad(sheet, 680, 5, 190, 200, 0.2);
+
+	icons[4] = quickLoad(sheet, 250, 230, 190, 210, 0.2);
+	icons[5] = quickLoad(sheet, 35, 230, 190, 210, 0.2);
+	icons[6] = quickLoad(sheet, 460, 240, 190, 200, 0.2);
+	icons[7] = quickLoad(sheet, 680, 240, 190, 200, 0.2);
+
+	// --- CONEXIÓN DE LOS TESTS ---
+	TestItem tests[MAX_TESTS] = {
+		{"Graphics", icons[0]->icon, run_graficos_test, 0.0f}
+		,
+		{"Audio", icons[1]->icon, NULL, 0.0f}
+		,
+		{"Input Pad", icons[2]->icon, NULL, 0.0f}
+		,
+		{"Fonts", icons[3]->icon, NULL, 0.0f}
+		,
+		{"Sprites", icons[4]->icon, NULL, 0.0f}
+		,
+		{"Gfx Engine", icons[5]->icon, NULL, 0.0f}
+		,
+		{"CPU Stress", icons[6]->icon, NULL, 0.0f}
+		,
+		{"Credits", icons[7]->icon, NULL, 0.0f}
+	};
+
+	int sel = 0, scroll = 0, d_l = 0, u_l = 0, a_l = 0;
+	
 	startup();
 
-
-
-	mixer.playMusic("music/music_22050.wav", true);
-
-
-
-	while (!done)
+	while (1)
 	{
-		update();
-		drawFramewire();
-		Render();
-		Fps_sincronizar(10);
-		update_log_scroll();
-	}
+		Input::update();
+		bool d = Input::isPressed(0, BUTTON_DOWN);
+		bool u = Input::isPressed(0, BUTTON_UP);
+		bool a = Input::isPressed(0, BUTTON_A);
 
-	off_video();
-	shoutdown_sistem();
+		// Navegación
+		if (d && !d_l)
+		{
+			sel = (sel + 1) % MAX_TESTS;
+			mixer.playChannel(&sfxMove, 0, 128);
+		}
+		if (u && !u_l)
+		{
+			sel = (sel - 1 + MAX_TESTS) % MAX_TESTS;
+			mixer.playChannel(&sfxMove, 0, 128);
+		}
+
+		// Lanzar Test
+		if (a && !a_l)
+		{
+			mixer.playChannel(&sfxPush, 0, 128);
+			if (tests[sel].action != NULL)
+			{
+				// El programa entra aquí y no sale hasta que el test termine
+				tests[sel].action();
+			}
+		}
+		d_l = d;
+		u_l = u;
+		a_l = a;
+
+		if (sel >= scroll + VISIBLE_ITEMS)
+			scroll = sel - VISIBLE_ITEMS + 1;
+		if (sel < scroll)
+			scroll = sel;
+
+		// Renderizado sobre logic
+		render_background_gradient(logic, color_rgb(10, 15, 30), color_rgb(35, 55, 95));
+
+		fontsize(16, 16);
+		print(20, 15, "TEST SUITE", color_rgb(0, 255, 255));
+		fill_rect(logic, 20, 36, 210, 2, color_rgb(0, 255, 255));
+		fill_rect(logic, 20, 38, 210, 2, color_rgb(120, 66, 255));
+		fill_rect(logic, 20, 40, 210, 2, color_rgb(255,0,0));
+
+		for (int i = 0; i < VISIBLE_ITEMS; i++)
+		{
+			int idx = scroll + i;
+			if (idx < MAX_TESTS)
+			{
+				renderItem(logic, &tests[idx], 40, 55 + (i * 42), (idx == sel), (idx == sel && a));
+			}
+		}
+
+		// Scrollbar
+		fill_rect(logic, 305, 55, 3, 160, color_rgb(30, 35, 60));
+		int sY = 55 + (scroll * (160 - 30) / (MAX_TESTS - VISIBLE_ITEMS));
+		fill_rect(logic, 305, sY, 3, 30, color_rgb(0, 255, 255));
+
+		// Marquee Inferior
+		fill_rect(logic, 0, 222, 320, 18, color_rgb(0, 0, 0));
+		font.draw(logic, MMX_FONT, (int)marqueeX, 225, infoText);
+
+		marqueeX -= 1.3f;
+		if (marqueeX < -1000.0f)
+			marqueeX = 320.0f;
+
+		Render();
+		Fps_sincronizar(60);
+	}
 
 	return 0;
 }
