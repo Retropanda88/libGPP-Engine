@@ -106,13 +106,15 @@ int main(int argc, char **argv)
 
 	Cmixer mixer;
 	mixer.init(44100, 2, 2048);
-	mixer.playMusic("music/music.wav", true);
 
 	CSample sfxMove, sfxPush;
 	sfxMove.Load("sfx/button.wav");
 	sfxPush.Load("sfx/push.wav");
 
 	SDL_Surface *sheet = load_img("gfx/icon.png");
+	startup();
+	mixer.playMusic("music/music.wav", true);
+	
 
 	icon *icons[MAX_TESTS];
 
@@ -146,8 +148,8 @@ int main(int argc, char **argv)
 	};
 
 	int sel = 0, scroll = 0, d_l = 0, u_l = 0, a_l = 0;
-	
-	startup();
+
+
 
 	while (1)
 	{
@@ -194,7 +196,7 @@ int main(int argc, char **argv)
 		print(20, 15, "TEST SUITE", color_rgb(0, 255, 255));
 		fill_rect(logic, 20, 36, 210, 2, color_rgb(0, 255, 255));
 		fill_rect(logic, 20, 38, 210, 2, color_rgb(120, 66, 255));
-		fill_rect(logic, 20, 40, 210, 2, color_rgb(255,0,0));
+		fill_rect(logic, 20, 40, 210, 2, color_rgb(255, 0, 0));
 
 		for (int i = 0; i < VISIBLE_ITEMS; i++)
 		{
