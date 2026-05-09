@@ -47,7 +47,7 @@ struct TestItem
 
 void render_background_gradient(SDL_Surface * s, u32 colorTop, u32 colorBottom)
 {
-	int r1 = (colorTop >> 16) & 0xFF, g1 = (colorTop >> 8) & 0xFF, b1 = colorTop & 0xFF;
+	/*int r1 = (colorTop >> 16) & 0xFF, g1 = (colorTop >> 8) & 0xFF, b1 = colorTop & 0xFF;
 	int r2 = (colorBottom >> 16) & 0xFF, g2 = (colorBottom >> 8) & 0xFF, b2 = colorBottom & 0xFF;
 	for (int i = 0; i < s->h; i++)
 	{
@@ -56,7 +56,8 @@ void render_background_gradient(SDL_Surface * s, u32 colorTop, u32 colorBottom)
 		u8 g = (u8) (g1 + (g2 - g1) * f);
 		u8 b = (u8) (b1 + (b2 - b1) * f);
 		fill_rect(s, 0, i, s->w, 1, color_rgb(r, g, b));
-	}
+	}*/
+	fill_vertical_gradient(s, colorTop, colorBottom);
 }
 
 icon *quickLoad(SDL_Surface * sheet, int x, int y, int w, int h, float zoom)
