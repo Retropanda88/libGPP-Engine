@@ -37,6 +37,11 @@ CSample::~CSample()
 }
 
 
+void CSample::close(){
+	
+}
+
+
 static bool mem_read(const u8 * &ptr, const u8 * end, void *dst, u32 size)
 {
 	if (ptr + size > end)
