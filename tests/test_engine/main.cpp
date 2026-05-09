@@ -9,13 +9,15 @@
 
 // --- INCLUSIÓN DE TUS HEADERS DE TEST ---
 #include "test_graficos.h"
-// #include "tests/audio_test.h"
+ #include "test_audio.h"
 
 #define MAX_TESTS 8
 #define VISIBLE_ITEMS 4
 
 // logic es la superficie precalculada del motor
 extern SDL_Surface *logic;
+gfxFont font;
+Cmixer mixer;
 
 // Variables para el Marquee de Retropanda88
 float marqueeX = 320.0f;
@@ -99,12 +101,9 @@ int main(int argc, char **argv)
 	if (Init_Sistem("GPP Pro Suite") < 0)
 		return 1;
 	Set_Video();
-	Input::init();
-
-	gfxFont font;
-	font.init();
-
-	Cmixer mixer;
+    
+    Input::init();
+    font.init();
 	mixer.init(44100, 2, 2048);
 
 	CSample sfxMove, sfxPush;
@@ -132,7 +131,7 @@ int main(int argc, char **argv)
 	TestItem tests[MAX_TESTS] = {
 		{"Graphics", icons[0]->icon, run_graficos_test, 0.0f}
 		,
-		{"Audio", icons[1]->icon, NULL, 0.0f}
+		{"Audio", icons[1]->icon, run_audio_test, 0.0f}
 		,
 		{"Input Pad", icons[2]->icon, NULL, 0.0f}
 		,
