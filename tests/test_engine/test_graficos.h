@@ -3,7 +3,7 @@
 
 #include <engine/engine.h>
 #include <input/Input.h>
-#include <SDL.h>
+//#include <SDL.h>
 #include <stdio.h>
 
 extern SDL_Surface *logic;
