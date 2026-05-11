@@ -24,21 +24,23 @@ struct AudioList {
     int scroll;
 };
 
-void unload_samples(AudioList* list) {
-    for (int i = 0; i < list->count; i++) {
-        if (list->samples[i]) {
-            list->samples[i]->setActive(false);
+// Limpieza profunda de memoria para evitar corrupción de textos en PS2
+void unload_and_clear(AudioList* list) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (i < list->count && list->samples[i]) {
             list->samples[i]->close();
             delete list->samples[i];
             list->samples[i] = NULL;
         }
+        memset(list->names[i], 0, FS_MAX_NAME);
     }
+    list->count = 0;
 }
 
 void scan_and_preload(const char* path, AudioList* list, bool preload) {
     FS_DIR dir;
     FS_DIRENT ent;
-    list->count = 0; list->selected = 0; list->scroll = 0;
+    list->count = 0;
     if (fs_opendir(&dir, path) == 0) {
         while (fs_readdir(&dir, &ent) == 0 && list->count < MAX_FILES) {
             if (!ent.is_dir && strstr(ent.name, ".wav")) {
@@ -47,10 +49,7 @@ void scan_and_preload(const char* path, AudioList* list, bool preload) {
                     char fullPath[512];
                     sprintf(fullPath, "%s/%s", path, ent.name);
                     list->samples[list->count] = new CSample();
-                    if (!list->samples[list->count]->Load(fullPath)) {
-                        delete list->samples[list->count];
-                        list->samples[list->count] = NULL;
-                    }
+                    list->samples[list->count]->Load(fullPath);
                 } else {
                     list->samples[list->count] = NULL;
                 }
@@ -62,6 +61,10 @@ void scan_and_preload(const char* path, AudioList* list, bool preload) {
 }
 
 void run_audio_test() {
+    // SEGURIDAD PS2: Detener audio antes de leer archivos
+    mixer.stopMusic();
+    mixer.stopAll();
+
     AudioList musicList, sfxList;
     scan_and_preload("music", &musicList, false);
     scan_and_preload("sfx", &sfxList, true);
@@ -80,9 +83,10 @@ void run_audio_test() {
         AudioList* cur = (activeCol == 0) ? &musicList : &sfxList;
 
         if (b) exiting = true;
+
         if ((l && !l_l) || (r && !r_l) || (d && !d_l) || (u && !u_l)) {
             activeCol = l ? 0 : (r ? 1 : activeCol);
-            marqueeTimer = 0; charOffset = 0;
+            marqueeTimer = 0.0f; charOffset = 0;
             if (d && !d_l && cur->count > 0) cur->selected = (cur->selected + 1) % cur->count;
             if (u && !u_l && cur->count > 0) cur->selected = (cur->selected - 1 + cur->count) % cur->count;
         }
@@ -107,7 +111,7 @@ void run_audio_test() {
             }
         }
 
-        // --- RENDERIZADO (320x240) ---
+        // --- RENDERIZADO ORIGINAL MANTENIDO ---
         fill_vertical_gradient(logic, color_rgb(10, 15, 30), color_rgb(20, 30, 50));
         fontsize(8, 8); 
         print(15, 10, "AUDIO EXPLORER", color_rgb(0, 255, 255));
@@ -135,7 +139,7 @@ void run_audio_test() {
                             print(startX, py, lst->names[idx], color_rgb(255, 255, 255));
                         }
                     } else {
-                        char shortName[20];
+                        char shortName[32];
                         if (strlen(lst->names[idx]) > 15) {
                             strncpy(shortName, lst->names[idx], 12);
                             shortName[12] = '\0'; strcat(shortName, "...");
@@ -158,7 +162,6 @@ void run_audio_test() {
             }
         }
 
-        // --- BARRA INFERIOR (RESTAURADA) ---
         fill_rect(logic, 0, 210, 320, 30, color_rgb(5, 5, 10));
         print(15, 218, "VOL", color_rgb(0, 255, 0));
         fill_rect(logic, 45, 221, 100, 6, color_rgb(40, 40, 40));
@@ -172,7 +175,10 @@ void run_audio_test() {
         Render();
         Fps_sincronizar(60);
     }
-    mixer.stopAll();
-    unload_samples(&sfxList);
+
+    // LIMPIEZA FINAL
+    unload_and_clear(&musicList);
+    unload_and_clear(&sfxList);
 }
+
 #endif
