@@ -2,72 +2,138 @@
 #define AUDIO_TEST_H
 
 #include <engine/engine.h>
-#include <input/Input.h>
-#include <audio/mixer.h>
-#include <audio/sample.h>
-#include <font/gfxFont.h>
-#include <filesystem/fs.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 extern SDL_Surface *logic;
 extern Cmixer mixer;
 
-#define MAX_FILES 64
 #define LIST_VISIBLE 7 
 
-struct AudioList {
-    char names[MAX_FILES][FS_MAX_NAME];
-    CSample* samples[MAX_FILES]; 
-    int count;
+// Estructura dinámica alineada a 16 bytes para la PS2
+struct __attribute__((aligned(16))) AudioList {
+    char (*names)[FS_MAX_NAME]; // Puntero a un bloque dinámico de nombres
+    CSample* samples;           // Arreglo dinámico de muestras de audio
+    bool* loaded;               // Arreglo dinámico de estados de carga
+    int count;                  // Cantidad total de archivos encontrados
     int selected;
     int scroll;
 };
 
-// Limpieza profunda de memoria para evitar corrupción de textos en PS2
-void unload_and_clear(AudioList* list) {
-    for (int i = 0; i < MAX_FILES; i++) {
-        if (i < list->count && list->samples[i]) {
-            list->samples[i]->close();
-            delete list->samples[i];
-            list->samples[i] = NULL;
+// Ubicamos los descriptores de las listas en la sección de datos estáticos
+static AudioList musicList __attribute__((aligned(16)));
+static AudioList sfxList __attribute__((aligned(16)));
+
+// ============================================================================
+// GESTIÓN DINÁMICA DE MEMORIA (SE EJECUTA AL INICIO / CIERRE DE LA APP)
+// ============================================================================
+
+void unload_and_clear_dynamic(AudioList* list) {
+    if (!list) return;
+    
+    // 1. Descargar las muestras de audio que estaban en RAM
+    if (list->samples && list->loaded) {
+        for (int i = 0; i < list->count; i++) {
+            if (list->loaded[i]) {
+                list->samples[i].setActive(false);
+                list->samples[i].close();
+            }
         }
-        memset(list->names[i], 0, FS_MAX_NAME);
     }
+
+    // 2. Liberar la memoria asignada dinámicamente
+    if (list->names)   { free(list->names);   list->names = NULL; }
+    if (list->samples) { free(list->samples); list->samples = NULL; }
+    if (list->loaded)  { free(list->loaded);  list->loaded = NULL; }
+
     list->count = 0;
+    list->selected = 0;
+    list->scroll = 0;
 }
 
-void scan_and_preload(const char* path, AudioList* list, bool preload) {
+void scan_and_preload_dynamic(const char* path, AudioList* list, bool preload) {
     FS_DIR dir;
     FS_DIRENT ent;
+    
     list->count = 0;
+    list->names = NULL;
+    list->samples = NULL;
+    list->loaded = NULL;
+    
     if (fs_opendir(&dir, path) == 0) {
-        while (fs_readdir(&dir, &ent) == 0 && list->count < MAX_FILES) {
+        // Primer paso: Contar cuántos archivos válidos hay para reservar la memoria exacta
+        int allocCount = 0;
+        while (fs_readdir(&dir, &ent) == 0) {
             if (!ent.is_dir && strstr(ent.name, ".wav")) {
-                strncpy(list->names[list->count], ent.name, FS_MAX_NAME);
-                if (preload) {
-                    char fullPath[512];
-                    sprintf(fullPath, "%s/%s", path, ent.name);
-                    list->samples[list->count] = new CSample();
-                    list->samples[list->count]->Load(fullPath);
-                } else {
-                    list->samples[list->count] = NULL;
+                allocCount++;
+            }
+        }
+        
+        if (allocCount > 0) {
+            list->count = allocCount;
+            // Asignamos los bloques de memoria dinámicos con el tamaño exacto
+            list->names   = (char (*)[FS_MAX_NAME])malloc(allocCount * FS_MAX_NAME);
+            list->samples = (CSample*)malloc(allocCount * sizeof(CSample));
+            list->loaded  = (bool*)malloc(allocCount * sizeof(bool));
+            
+            // Inicializar por seguridad para evitar basura en memoria
+            memset(list->names, 0, allocCount * FS_MAX_NAME);
+            memset(list->loaded, 0, allocCount * sizeof(bool));
+            // Invocar constructor por defecto de C++ en el bloque asignado por malloc para los CSample
+            for (int i = 0; i < allocCount; i++) {
+                new (&list->samples[i]) CSample();
+            }
+
+            // Segundo paso: Resetear el directorio y rellenar los datos
+            fs_closedir(&dir);
+            if (fs_opendir(&dir, path) == 0) {
+                int index = 0;
+                while (fs_readdir(&dir, &ent) == 0 && index < allocCount) {
+                    if (!ent.is_dir && strstr(ent.name, ".wav")) {
+                        strncpy(list->names[index], ent.name, FS_MAX_NAME - 1);
+                        list->names[index][FS_MAX_NAME - 1] = '\0';
+                        
+                        if (preload) {
+                            char fullPath[512] __attribute__((aligned(16)));
+                            snprintf(fullPath, sizeof(fullPath), "%s/%s", path, ent.name);
+                            if (list->samples[index].Load(fullPath)) {
+                                list->loaded[index] = true;
+                            }
+                        }
+                        index++;
+                    }
                 }
-                list->count++;
             }
         }
         fs_closedir(&dir);
     }
 }
 
+void init_audio_test_resources() {
+    unload_and_clear_dynamic(&musicList);
+    unload_and_clear_dynamic(&sfxList);
+    scan_and_preload_dynamic("music", &musicList, false); // Streaming
+    scan_and_preload_dynamic("sfx", &sfxList, true);      // Precarga a RAM
+}
+
+void free_audio_test_resources() {
+    mixer.stopMusic();
+    mixer.stopAll();
+    unload_and_clear_dynamic(&musicList);
+    unload_and_clear_dynamic(&sfxList);
+}
+
+// ============================================================================
+// BUCLE DE EJECUCIÓN (Bucle puro sin lecturas a disco e interfaz idéntica)
+// ============================================================================
+
 void run_audio_test() {
-    // SEGURIDAD PS2: Detener audio antes de leer archivos
     mixer.stopMusic();
     mixer.stopAll();
 
-    AudioList musicList, sfxList;
-    scan_and_preload("music", &musicList, false);
-    scan_and_preload("sfx", &sfxList, true);
+    musicList.selected = 0; musicList.scroll = 0;
+    sfxList.selected = 0;   sfxList.scroll = 0;
 
     int activeCol = 0, volume = 64;
     bool exiting = false;
@@ -101,17 +167,17 @@ void run_audio_test() {
         if (a && !a_l && cur->count > 0) {
             if (activeCol == 0) {
                 mixer.stopMusic();
-                char path[512];
-                sprintf(path, "music/%s", cur->names[cur->selected]);
+                char path[512] __attribute__((aligned(16)));
+                snprintf(path, sizeof(path), "music/%s", cur->names[cur->selected]);
                 mixer.playMusic(path, true);
             } else {
-                if (cur->samples[cur->selected]) {
-                    mixer.playChannel(cur->samples[cur->selected], false, volume);
+                if (cur->loaded && cur->loaded[cur->selected]) {
+                    mixer.playChannel(&cur->samples[cur->selected], false, volume);
                 }
             }
         }
 
-        // --- RENDERIZADO ORIGINAL MANTENIDO ---
+        // --- INTERFAZ GRÁFICA ORIGINAL AL 100% ---
         fill_vertical_gradient(logic, color_rgb(10, 15, 30), color_rgb(20, 30, 50));
         fontsize(8, 8); 
         print(15, 10, "AUDIO EXPLORER", color_rgb(0, 255, 255));
@@ -120,45 +186,36 @@ void run_audio_test() {
         for (int col = 0; col < 2; col++) {
             AudioList* lst = (col == 0) ? &musicList : &sfxList;
             int startX = (col == 0) ? 20 : 170;
-
             for (int i = 0; i < LIST_VISIBLE; i++) {
                 int idx = lst->scroll + i;
-                if (idx < lst->count) {
+                if (idx < lst->count && lst->names) {
                     int py = 55 + (i * 18);
                     if (activeCol == col && idx == lst->selected) {
                         fill_rect(logic, startX - 4, py - 2, 135, 14, color_rgb(40, 60, 120));
-                        int nameLen = strlen(lst->names[idx]);
-                        if (nameLen > 15) {
+                        int nLen = strlen(lst->names[idx]);
+                        if (nLen > 15) {
                             marqueeTimer += 0.15f;
-                            if (marqueeTimer > 1.0f) { marqueeTimer = 0.0f; charOffset++; if (charOffset > nameLen - 5) charOffset = 0; }
-                            char displayBuffer[32];
-                            strncpy(displayBuffer, &lst->names[idx][charOffset], 16);
-                            displayBuffer[16] = '\0';
-                            print(startX, py, displayBuffer, color_rgb(255, 255, 255));
-                        } else {
-                            print(startX, py, lst->names[idx], color_rgb(255, 255, 255));
-                        }
+                            if (marqueeTimer > 1.0f) { marqueeTimer = 0.0f; charOffset++; if (charOffset > nLen - 5) charOffset = 0; }
+                            char db[17]; strncpy(db, &lst->names[idx][charOffset], 16); db[16] = '\0';
+                            print(startX, py, db, color_rgb(255, 255, 255));
+                        } else print(startX, py, lst->names[idx], color_rgb(255, 255, 255));
                     } else {
-                        char shortName[32];
+                        char sn[16];
                         if (strlen(lst->names[idx]) > 15) {
-                            strncpy(shortName, lst->names[idx], 12);
-                            shortName[12] = '\0'; strcat(shortName, "...");
-                            print(startX, py, shortName, color_rgb(130, 130, 140));
-                        } else {
-                            print(startX, py, lst->names[idx], color_rgb(130, 130, 140));
-                        }
+                            strncpy(sn, lst->names[idx], 12); sn[12] = '\0'; strcat(sn, "...");
+                            print(startX, py, sn, color_rgb(130, 130, 140));
+                        } else print(startX, py, lst->names[idx], color_rgb(130, 130, 140));
                     }
                 }
             }
-
+            // Scrollbars proporcionales dinámicas
             if (lst->count > LIST_VISIBLE) {
                 int scrollX = (col == 0) ? 158 : 312;
                 int barH = LIST_VISIBLE * 18 - 4;
                 fill_rect(logic, scrollX, 55, 2, barH, color_rgb(40, 40, 50));
                 int cursorH = (LIST_VISIBLE * barH) / lst->count;
-                if (cursorH < 6) cursorH = 6;
-                int cursorY = 55 + (lst->scroll * (barH - cursorH)) / (lst->count - LIST_VISIBLE);
-                fill_rect(logic, scrollX, cursorY, 2, cursorH, (activeCol == col) ? color_rgb(0, 255, 255) : color_rgb(80, 80, 90));
+                int cursorY = 55 + (lst->scroll * (barH - (cursorH < 6 ? 6 : cursorH))) / (lst->count - LIST_VISIBLE);
+                fill_rect(logic, scrollX, cursorY, 2, (cursorH < 6 ? 6 : cursorH), (activeCol == col) ? color_rgb(0, 255, 255) : color_rgb(80, 80, 90));
             }
         }
 
@@ -166,7 +223,6 @@ void run_audio_test() {
         print(15, 218, "VOL", color_rgb(0, 255, 0));
         fill_rect(logic, 45, 221, 100, 6, color_rgb(40, 40, 40));
         fill_rect(logic, 45, 221, (volume * 100 / 128), 6, color_rgb(0, 255, 0));
-        
         fontsize(6, 6);
         print(155, 221, "A:PLAY L1/R1:VOL ARROWS:NAV", color_rgb(140, 140, 150));
         fontsize(8, 8); 
@@ -175,10 +231,6 @@ void run_audio_test() {
         Render();
         Fps_sincronizar(60);
     }
-
-    // LIMPIEZA FINAL
-    unload_and_clear(&musicList);
-    unload_and_clear(&sfxList);
 }
 
 #endif

@@ -9,7 +9,7 @@
 
 // --- INCLUSIÓN DE TUS HEADERS DE TEST ---
 #include "test_graficos.h"
- #include "test_audio.h"
+#include "test_audio.h"
 
 #define MAX_TESTS 8
 #define VISIBLE_ITEMS 4
@@ -48,16 +48,6 @@ struct TestItem
 
 void render_background_gradient(SDL_Surface * s, u32 colorTop, u32 colorBottom)
 {
-	/*int r1 = (colorTop >> 16) & 0xFF, g1 = (colorTop >> 8) & 0xFF, b1 = colorTop & 0xFF;
-	int r2 = (colorBottom >> 16) & 0xFF, g2 = (colorBottom >> 8) & 0xFF, b2 = colorBottom & 0xFF;
-	for (int i = 0; i < s->h; i++)
-	{
-		float f = (float)i / (float)s->h;
-		u8 r = (u8) (r1 + (r2 - r1) * f);
-		u8 g = (u8) (g1 + (g2 - g1) * f);
-		u8 b = (u8) (b1 + (b2 - b1) * f);
-		fill_rect(s, 0, i, s->w, 1, color_rgb(r, g, b));
-	}*/
 	fill_vertical_gradient(s, colorTop, colorBottom);
 }
 
@@ -102,9 +92,12 @@ int main(int argc, char **argv)
 		return 1;
 	Set_Video();
     
-    Input::init();
-    font.init();
+	Input::init();
+	font.init();
 	mixer.init(44100, 2, 2048);
+
+	// Precarga de audio
+	init_audio_test_resources();
 
 	CSample sfxMove, sfxPush;
 	sfxMove.Load("sfx/button.wav");
@@ -148,8 +141,6 @@ int main(int argc, char **argv)
 
 	int sel = 0, scroll = 0, d_l = 0, u_l = 0, a_l = 0;
 
-
-
 	while (1)
 	{
 		Input::update();
@@ -175,8 +166,10 @@ int main(int argc, char **argv)
 			mixer.playChannel(&sfxPush, 0, 128);
 			if (tests[sel].action != NULL)
 			{
-				// El programa entra aquí y no sale hasta que el test termine
 				tests[sel].action();
+				
+				// Forzamos el reinicio directo de la música al regresar
+				mixer.playMusic("music/music.wav", true);
 			}
 		}
 		d_l = d;
@@ -222,6 +215,9 @@ int main(int argc, char **argv)
 		Render();
 		Fps_sincronizar(60);
 	}
+
+	// Liberación de recursos
+	free_audio_test_resources();
 
 	return 0;
 }
