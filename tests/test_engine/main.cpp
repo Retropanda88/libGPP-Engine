@@ -7,26 +7,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-// --- INCLUSIÓN DE TUS HEADERS DE TEST ---
 #include "test_graficos.h"
 #include "test_audio.h"
 
 #define MAX_TESTS 8
 #define VISIBLE_ITEMS 4
 
-// logic es la superficie precalculada del motor
 extern SDL_Surface *logic;
 gfxFont font;
 Cmixer mixer;
 
-// Variables para el Marquee de Retropanda88
 float marqueeX = 320.0f;
 const char *infoText =
 	"DESARROLLADO POR RETROPANDA88 - USE ARRIBA/ABAJO PARA NAVEGAR - BOTON A PARA SELECCIONAR TEST";
 
-// ==========================================================
-// ESTRUCTURAS Y TIPOS
-// ==========================================================
 typedef struct icon
 {
 	SDL_Surface *icon;
@@ -38,7 +32,7 @@ struct TestItem
 {
 	const char *title;
 	SDL_Surface *ico;
-	TestAction action;			// Puntero a la función del test
+	TestAction action;			
 	float animOffset;
 };
 
@@ -88,6 +82,10 @@ void renderItem(SDL_Surface * s, TestItem * it, int x, int y, bool sel, bool prs
 // ==========================================================
 int main(int argc, char **argv)
 {
+	// Evitar advertencias de variables sin uso en compilación limpia
+	(void)argc;
+	(void)argv;
+
 	if (Init_Sistem("GPP Pro Suite") < 0)
 		return 1;
 	Set_Video();
@@ -96,7 +94,6 @@ int main(int argc, char **argv)
 	font.init();
 	mixer.init(44100, 2, 2048);
 
-	// Precarga de audio
 	init_audio_test_resources();
 
 	CSample sfxMove, sfxPush;
@@ -107,7 +104,6 @@ int main(int argc, char **argv)
 	startup();
 	mixer.playMusic("music/music.wav", true);
 	
-
 	icon *icons[MAX_TESTS];
 
 	icons[0] = quickLoad(sheet, 35, 5, 190, 200, 0.2);
@@ -120,35 +116,29 @@ int main(int argc, char **argv)
 	icons[6] = quickLoad(sheet, 460, 240, 190, 200, 0.2);
 	icons[7] = quickLoad(sheet, 680, 240, 190, 200, 0.2);
 
-	// --- CONEXIÓN DE LOS TESTS ---
 	TestItem tests[MAX_TESTS] = {
-		{"Graphics", icons[0]->icon, run_graficos_test, 0.0f}
-		,
-		{"Audio", icons[1]->icon, run_audio_test, 0.0f}
-		,
-		{"Input Pad", icons[2]->icon, NULL, 0.0f}
-		,
-		{"Fonts", icons[3]->icon, NULL, 0.0f}
-		,
-		{"Sprites", icons[4]->icon, NULL, 0.0f}
-		,
-		{"Gfx Engine", icons[5]->icon, NULL, 0.0f}
-		,
-		{"CPU Stress", icons[6]->icon, NULL, 0.0f}
-		,
+		{"Graphics", icons[0]->icon, run_graficos_test, 0.0f},
+		{"Audio", icons[1]->icon, run_audio_test, 0.0f},
+		{"Input Pad", icons[2]->icon, NULL, 0.0f},
+		{"Fonts", icons[3]->icon, NULL, 0.0f},
+		{"Sprites", icons[4]->icon, NULL, 0.0f},
+		{"Gfx Engine", icons[5]->icon, NULL, 0.0f},
+		{"CPU Stress", icons[6]->icon, NULL, 0.0f},
 		{"Credits", icons[7]->icon, NULL, 0.0f}
 	};
 
 	int sel = 0, scroll = 0, d_l = 0, u_l = 0, a_l = 0;
 
-	while (1)
+	// Bandera para controlar el flujo de salida si decides implementar un botón de cierre
+	bool running = true; 
+
+	while (running)
 	{
 		Input::update();
 		bool d = Input::isPressed(0, BUTTON_DOWN);
 		bool u = Input::isPressed(0, BUTTON_UP);
 		bool a = Input::isPressed(0, BUTTON_A);
 
-		// Navegación
 		if (d && !d_l)
 		{
 			sel = (sel + 1) % MAX_TESTS;
@@ -160,15 +150,18 @@ int main(int argc, char **argv)
 			mixer.playChannel(&sfxMove, 0, 128);
 		}
 
-		// Lanzar Test
 		if (a && !a_l)
 		{
 			mixer.playChannel(&sfxPush, 0, 128);
 			if (tests[sel].action != NULL)
 			{
+				// Frenamos la música del menú para que no colisione con el test
+				mixer.stopMusic(); 
+				
 				tests[sel].action();
 				
-				// Forzamos el reinicio directo de la música al regresar
+				// Al regresar, reestablecemos limpiamente el stream principal
+				mixer.stopMusic();
 				mixer.playMusic("music/music.wav", true);
 			}
 		}
@@ -181,7 +174,6 @@ int main(int argc, char **argv)
 		if (sel < scroll)
 			scroll = sel;
 
-		// Renderizado sobre logic
 		render_background_gradient(logic, color_rgb(10, 15, 30), color_rgb(35, 55, 95));
 
 		fontsize(16, 16);
@@ -199,12 +191,10 @@ int main(int argc, char **argv)
 			}
 		}
 
-		// Scrollbar
 		fill_rect(logic, 305, 55, 3, 160, color_rgb(30, 35, 60));
 		int sY = 55 + (scroll * (160 - 30) / (MAX_TESTS - VISIBLE_ITEMS));
 		fill_rect(logic, 305, sY, 3, 30, color_rgb(0, 255, 255));
 
-		// Marquee Inferior
 		fill_rect(logic, 0, 222, 320, 18, color_rgb(0, 0, 0));
 		font.draw(logic, MMX_FONT, (int)marqueeX, 225, infoText);
 
@@ -216,8 +206,20 @@ int main(int argc, char **argv)
 		Fps_sincronizar(60);
 	}
 
-	// Liberación de recursos
+	// ==========================================================
+	// LIBERACIÓN COMPLETA DE MEMORIA (Previene Memory Leaks en PS2)
+	// ==========================================================
 	free_audio_test_resources();
+	SDL_FreeSurface(sheet);
+
+	for(int i = 0; i < MAX_TESTS; i++) {
+		if(icons[i]) {
+			if(icons[i]->icon) {
+				SDL_FreeSurface(icons[i]->icon);
+			}
+			free(icons[i]);
+		}
+	}
 
 	return 0;
 }

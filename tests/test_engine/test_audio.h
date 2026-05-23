@@ -2,9 +2,11 @@
 #define AUDIO_TEST_H
 
 #include <engine/engine.h>
+#include <input/Input.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <new> // REQUERIDO para usar placement new de forma segura
 
 extern SDL_Surface *logic;
 extern Cmixer mixer;
@@ -32,13 +34,15 @@ static AudioList sfxList __attribute__((aligned(16)));
 void unload_and_clear_dynamic(AudioList* list) {
     if (!list) return;
     
-    // 1. Descargar las muestras de audio que estaban en RAM
-    if (list->samples && list->loaded) {
+    // 1. Descargar las muestras de audio que estaban en RAM y DESTRUIR objetos C++
+    if (list->samples) {
         for (int i = 0; i < list->count; i++) {
-            if (list->loaded[i]) {
+            if (list->loaded && list->loaded[i]) {
                 list->samples[i].setActive(false);
                 list->samples[i].close();
             }
+            // ¡CRÍTICO! Llamada al destructor explícito para liberar el canal asignado por hardware
+            list->samples[i].~CSample();
         }
     }
 
@@ -62,7 +66,6 @@ void scan_and_preload_dynamic(const char* path, AudioList* list, bool preload) {
     list->loaded = NULL;
     
     if (fs_opendir(&dir, path) == 0) {
-        // Primer paso: Contar cuántos archivos válidos hay para reservar la memoria exacta
         int allocCount = 0;
         while (fs_readdir(&dir, &ent) == 0) {
             if (!ent.is_dir && strstr(ent.name, ".wav")) {
@@ -72,20 +75,18 @@ void scan_and_preload_dynamic(const char* path, AudioList* list, bool preload) {
         
         if (allocCount > 0) {
             list->count = allocCount;
-            // Asignamos los bloques de memoria dinámicos con el tamaño exacto
             list->names   = (char (*)[FS_MAX_NAME])malloc(allocCount * FS_MAX_NAME);
             list->samples = (CSample*)malloc(allocCount * sizeof(CSample));
             list->loaded  = (bool*)malloc(allocCount * sizeof(bool));
             
-            // Inicializar por seguridad para evitar basura en memoria
             memset(list->names, 0, allocCount * FS_MAX_NAME);
             memset(list->loaded, 0, allocCount * sizeof(bool));
-            // Invocar constructor por defecto de C++ en el bloque asignado por malloc para los CSample
+
+            // Invocar constructor por defecto en memoria cruda
             for (int i = 0; i < allocCount; i++) {
                 new (&list->samples[i]) CSample();
             }
 
-            // Segundo paso: Resetear el directorio y rellenar los datos
             fs_closedir(&dir);
             if (fs_opendir(&dir, path) == 0) {
                 int index = 0;
@@ -125,10 +126,11 @@ void free_audio_test_resources() {
 }
 
 // ============================================================================
-// BUCLE DE EJECUCIÓN (Bucle puro sin lecturas a disco e interfaz idéntica)
+// BUCLE DE EJECUCIÓN 
 // ============================================================================
 
 void run_audio_test() {
+    // Frenamos todo lo que traiga el menú principal de forma limpia
     mixer.stopMusic();
     mixer.stopAll();
 
@@ -139,7 +141,7 @@ void run_audio_test() {
     bool exiting = false;
     float marqueeTimer = 0.0f;
     int charOffset = 0;
-    bool u_l=0, d_l=0, l_l=0, r_l=0, a_l=0;
+    bool u_l=0, d_l=0, l_l=0, r_l=0, a_l=0, b_l=0;
 
     while (!exiting) {
         Input::update();
@@ -148,7 +150,12 @@ void run_audio_test() {
         bool a = Input::isDown(0, BUTTON_A), b = Input::isDown(0, BUTTON_B);
         AudioList* cur = (activeCol == 0) ? &musicList : &sfxList;
 
-        if (b) exiting = true;
+        if (b && !b_l) {
+            // Detenemos agresivamente antes de ceder el hilo al Main
+            mixer.stopMusic();
+            mixer.stopAll();
+            exiting = true;
+        }
 
         if ((l && !l_l) || (r && !r_l) || (d && !d_l) || (u && !u_l)) {
             activeCol = l ? 0 : (r ? 1 : activeCol);
@@ -177,7 +184,7 @@ void run_audio_test() {
             }
         }
 
-        // --- INTERFAZ GRÁFICA ORIGINAL AL 100% ---
+        // --- INTERFAZ GRÁFICA ORIGINAL ---
         fill_vertical_gradient(logic, color_rgb(10, 15, 30), color_rgb(20, 30, 50));
         fontsize(8, 8); 
         print(15, 10, "AUDIO EXPLORER", color_rgb(0, 255, 255));
@@ -208,7 +215,6 @@ void run_audio_test() {
                     }
                 }
             }
-            // Scrollbars proporcionales dinámicas
             if (lst->count > LIST_VISIBLE) {
                 int scrollX = (col == 0) ? 158 : 312;
                 int barH = LIST_VISIBLE * 18 - 4;
@@ -227,7 +233,7 @@ void run_audio_test() {
         print(155, 221, "A:PLAY L1/R1:VOL ARROWS:NAV", color_rgb(140, 140, 150));
         fontsize(8, 8); 
 
-        u_l=u; d_l=d; l_l=l; r_l=r; a_l=a;
+        u_l=u; d_l=d; l_l=l; r_l=r; a_l=a; b_l=b; // Guardamos el estado de B
         Render();
         Fps_sincronizar(60);
     }
