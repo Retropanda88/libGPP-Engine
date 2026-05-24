@@ -3,6 +3,7 @@
 #include <audio/mixer.h>
 #include <audio/sample.h>
 #include <font/gfxFont.h>
+#include <font/sysfont.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -273,6 +274,7 @@ int main(int argc, char **argv) {
 		marqueeX -= 1.3f;
 		if (marqueeX < -1000.0f) marqueeX = 320.0f;
 
+       sysfontDrawString(24, 1, "SISTEMA DE TEXTO ACTIVADO...", 0xffffffff);
 		Render();
 		Fps_sincronizar(60);
 	}

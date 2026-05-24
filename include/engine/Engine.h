@@ -6,6 +6,7 @@
 #include <engine/surface_tools.h>
 #include <font/font.h>
 #include <font/gfxFont.h>
+#include <font/sysfont.h>
 
 
 #include <gfx/SDL_gfxPrimitives.h>
