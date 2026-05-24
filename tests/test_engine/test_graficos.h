@@ -3,43 +3,56 @@
 
 #include <engine/engine.h>
 #include <input/Input.h>
-//#include <SDL.h>
 #include <stdio.h>
 
 extern SDL_Surface *logic;
+extern SDL_Surface* surf_gradientes[4];
+extern SDL_Surface* surf_mix[4];
 
 inline void run_graficos_test()
 {
-    printf(">> SUIT TEST VIDEO: FINALIZADO E INTEGRADO\n");
+    printf(">> SUIT TEST VIDEO: NATIVO Y ESTABILIZADO\n");
 
     if (!logic) return;
 
+    Input::update(); 
+
     bool testing = true;
-    int modo = 0; // 0: Geometria, 1: Gradientes, 2: Contraste, 3: Mix Final
+    int modo = 0; 
     const int gridStep = 16;
 
     u32 negro    = color_rgb(0, 0, 0);
     u32 blanco   = color_rgb(255, 255, 255);
     u32 rojo     = color_rgb(255, 0, 0);
     u32 verde    = color_rgb(0, 255, 0);
-    u32 azul     = color_rgb(0, 0, 255);
     u32 amarillo = color_rgb(255, 255, 0);
     u32 cyan     = color_rgb(0, 255, 255);
+
+    bool b_l = true; 
+    bool r_l = true;
+    bool l_l = true;
 
     while (testing)
     {
         Input::update();
+        bool b = Input::isDown(0, BUTTON_B);
+        bool r = Input::isPressed(0, BUTTON_RIGHT);
+        bool l = Input::isPressed(0, BUTTON_LEFT);
 
-        if (Input::isPressed(0, BUTTON_B)) testing = false;
-        
-        if (Input::isPressed(0, BUTTON_RIGHT)) {
-            modo++;
-            if (modo > 3) modo = 0;
+        if (b && !b_l) {
+            testing = false;
         }
-        if (Input::isPressed(0, BUTTON_LEFT)) {
-            modo--;
-            if (modo < 0) modo = 3;
+
+        if (r && !r_l) {
+            modo = (modo + 1) % 4;
         }
+        if (l && !l_l) {
+            modo = (modo - 1 + 4) % 4;
+        }
+
+        b_l = b;
+        r_l = r;
+        l_l = l;
 
         fill_rect(logic, 0, 0, logic->w, logic->h, negro);
 
@@ -49,21 +62,19 @@ inline void run_graficos_test()
                 u32 c = (x == 0 || x >= logic->w - 1) ? rojo : blanco;
                 draw_line_fast(logic, x, 0, x, logic->h, c);
             }
-            for (int y = 0; y <= logic->h; y += gridStep) {
-                u32 c = (y == 0 || y >= logic->h - 1) ? rojo : blanco;
-                draw_line_fast(logic, 0, y, logic->w, y, c);
+            for (int i = 0; i <= logic->h; i += gridStep) {
+                u32 c = (i == 0 || i >= logic->h - 1) ? rojo : blanco;
+                draw_line_fast(logic, 0, i, logic->w, i, c);
             }
             print(10, 10, "[1/4] GEOMETRIA", rojo);
         } 
         else if (modo == 1) {
             // --- MODO 2: GRADIENTES ---
-            int bh = 30; int sy = 40;
-            u32 colores[] = {blanco, rojo, verde, azul};
-            for(int i=0; i<4; i++) {
-                SDL_Surface* s = create_surface(240, bh, 0);
-                fill_horizontal_gradient(s, negro, colores[i]);
-                draw_surface(s, 40, sy + (i*40));
-                SDL_FreeSurface(s);
+            int sy = 40;
+            for(int i = 0; i < 4; i++) {
+                if (surf_gradientes[i]) {
+                    draw_surface(surf_gradientes[i], 40, sy + (i * 40));
+                }
             }
             print(10, 10, "[2/4] GRADIENTES", cyan);
         }
@@ -81,21 +92,21 @@ inline void run_graficos_test()
             print(10, 10, "[3/4] CONTRASTE", verde);
         }
         else {
-            // --- MODO 4: MIX FINAL (REJILLA + BARRAS) ---
-            // Dibujar rejilla de fondo en gris oscuro
+            // --- MODO 4: MIX FINAL (CORREGIDO) ---
             u32 gris_osc = color_rgb(60, 60, 60);
             for (int x = 0; x <= logic->w; x += gridStep) draw_line_fast(logic, x, 0, x, logic->h, gris_osc);
+            
+            // CORRECCIÓN: Cambiado 'i <= logic->h' por 'y <= logic->h'
             for (int y = 0; y <= logic->h; y += gridStep) draw_line_fast(logic, 0, y, logic->w, y, gris_osc);
 
-            // Barras con etiquetas
             const char* labels[] = {"RED", "GREEN", "BLUE", "WHITE"};
-            u32 cols[] = {rojo, verde, azul, blanco};
-            for(int i=0; i<4; i++) {
-                print(45, 45 + (i*40), (char*)labels[i], cols[i]); // Etiquetas
-                SDL_Surface* s = create_surface(220, 32, 0);
-                fill_horizontal_gradient(s, negro, cols[i]);
-                draw_surface(s, 45, 55 + (i*40));
-                SDL_FreeSurface(s);
+            u32 cols[] = {rojo, verde, color_rgb(0,0,255), blanco};
+            
+            for(int i = 0; i < 4; i++) {
+                print(45, 45 + (i * 40), (char*)labels[i], cols[i]); 
+                if (surf_mix[i]) {
+                    draw_surface(surf_mix[i], 45, 55 + (i * 40));
+                }
             }
             print(10, 10, "[4/4] MIX: CONVERGENCIA & COLOR", amarillo);
         }
@@ -108,9 +119,6 @@ inline void run_graficos_test()
         Render();
         Fps_sincronizar(60);
     }
-
-    SDL_Event e;
-    while (SDL_PollEvent(&e));
 }
 
 #endif

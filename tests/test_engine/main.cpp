@@ -18,38 +18,42 @@ gfxFont font;
 Cmixer mixer;
 
 float marqueeX = 320.0f;
-const char *infoText =
-	"DESARROLLADO POR RETROPANDA88 - USE ARRIBA/ABAJO PARA NAVEGAR - BOTON A PARA SELECCIONAR TEST";
+const char *infoText = "DESARROLLADO POR RETROPANDA88 - USE ARRIBA/ABAJO PARA NAVEGAR - BOTON A PARA SELECCIONAR TEST";
 
-typedef struct icon
-{
-	SDL_Surface *icon;
-} icon;
-
+typedef struct icon { SDL_Surface *icon; } icon;
 typedef void (*TestAction) (void);
 
-struct TestItem
-{
+struct TestItem {
 	const char *title;
 	SDL_Surface *ico;
 	TestAction action;			
 	float animOffset;
 };
 
-// ==========================================================
-// FUNCIONES DE APOYO
-// ==========================================================
+// ========================================================================
+// VARIABLES GLOBALES Y ESTRUCTURAS PERSISTENTES
+// ========================================================================
+AudioList musicList;
+AudioList sfxList;
+int global_volume = 64; 
 
-void render_background_gradient(SDL_Surface * s, u32 colorTop, u32 colorBottom)
-{
+// Superficies globales asignadas para el test de gráficos
+SDL_Surface* surf_gradientes[4] = {NULL, NULL, NULL, NULL};
+SDL_Surface* surf_mix[4]        = {NULL, NULL, NULL, NULL};
+
+// BANCO DE MEMORIA RAM PARA SFX: Protege el hilo de audio de lecturas de almacenamiento
+CSample* sfxPreloadedBank = NULL;
+
+// ========================================================================
+// FUNCIONES DE SOPORTE DE LA INTERFAZ
+// ========================================================================
+void render_background_gradient(SDL_Surface * s, u32 colorTop, u32 colorBottom) {
 	fill_vertical_gradient(s, colorTop, colorBottom);
 }
 
-icon *quickLoad(SDL_Surface * sheet, int x, int y, int w, int h, float zoom)
-{
+icon *quickLoad(SDL_Surface * sheet, int x, int y, int w, int h, float zoom) {
 	icon *temp = (icon *) malloc(sizeof(icon));
-	if (!temp)
-		return NULL;
+	if (!temp) return NULL;
 	temp->icon = cut_surface(sheet, x, y, w, h);
 	SDL_Surface *scaled = rotozoom_create(temp->icon, 0.0f, zoom);
 	SDL_FreeSurface(temp->icon);
@@ -57,60 +61,151 @@ icon *quickLoad(SDL_Surface * sheet, int x, int y, int w, int h, float zoom)
 	return temp;
 }
 
-void renderItem(SDL_Surface * s, TestItem * it, int x, int y, bool sel, bool prs)
-{
+void renderItem(SDL_Surface * s, TestItem * it, int x, int y, bool sel, bool prs) {
 	int w = 210, h = 36;
 	float target = sel ? 15.0f : 0.0f;
 	it->animOffset += (target - it->animOffset) * 0.2f;
 	int cx = x + (int)it->animOffset;
 
-	u32 bg =
-		prs ? color_rgb(255, 255, 255) : (sel ? color_rgb(40, 60, 120) : color_rgb(20, 20, 35));
+	u32 bg = prs ? color_rgb(255, 255, 255) : (sel ? color_rgb(40, 60, 120) : color_rgb(20, 20, 35));
 	u32 acc = sel ? color_rgb(0, 255, 255) : color_rgb(60, 60, 80);
 
 	fill_rect(s, cx + 12, y, w - 12, h, bg);
 	fill_triangle_fast(s, cx + 12, y, cx, y + h, cx + 12, y + h, bg);
-	if (it->ico)
-		draw_surface(it->ico, cx - 2, y + (h / 2) - (it->ico->h / 2));
+	if (it->ico) draw_surface(it->ico, cx - 2, y + (h / 2) - (it->ico->h / 2));
 
 	print(cx + 42, y + 13, it->title, sel ? color_rgb(255, 255, 255) : color_rgb(160, 160, 170));
 	fill_rect(s, cx + w - 3, y + 4, 2, h - 8, acc);
 }
 
-// ==========================================================
-// MAIN
-// ==========================================================
-int main(int argc, char **argv)
-{
-	// Evitar advertencias de variables sin uso en compilación limpia
-	(void)argc;
-	(void)argv;
+// ========================================================================
+// SISTEMA DE ESCANEO DINÁMICO Y PRECARGA TOTAL EN RAM
+// ========================================================================
+void cargar_listas_fijas() {
+    FS_DIR dir;
+    FS_DIRENT ent;
+    char pathBuffer[256];
+    
+    musicList.count = 0; musicList.selected = 0; musicList.scroll = 0; musicList.names = NULL;
+    sfxList.count = 0;   sfxList.selected = 0;   sfxList.scroll = 0;   sfxList.names = NULL;
 
-	if (Init_Sistem("GPP Pro Suite") < 0)
-		return 1;
+    // --- ESCANEO "MUSIC" ---
+    if (fs_opendir(&dir, "music") == 0) {
+        int totalFiles = 0;
+        while (fs_readdir(&dir, &ent) == 0) {
+            if (!ent.is_dir && strstr(ent.name, ".wav")) totalFiles++;
+        }
+        fs_closedir(&dir);
+
+        if (totalFiles > 0) {
+            musicList.count = totalFiles;
+            musicList.names = (char (*)[MAX_NAME_LEN])malloc(totalFiles * MAX_NAME_LEN);
+            if (musicList.names != NULL) {
+                memset(musicList.names, 0, totalFiles * MAX_NAME_LEN);
+                if (fs_opendir(&dir, "music") == 0) {
+                    int index = 0;
+                    while (fs_readdir(&dir, &ent) == 0 && index < totalFiles) {
+                        if (!ent.is_dir && strstr(ent.name, ".wav")) {
+                            strncpy(musicList.names[index], ent.name, MAX_NAME_LEN - 1);
+                            index++;
+                        }
+                    }
+                    fs_closedir(&dir);
+                }
+            }
+        }
+    }
+
+    // --- ESCANEO Y PRECARGA ABSOLUTA DE "SFX" EN RAM ---
+    if (fs_opendir(&dir, "sfx") == 0) {
+        int totalFiles = 0;
+        while (fs_readdir(&dir, &ent) == 0) {
+            if (!ent.is_dir && strstr(ent.name, ".wav")) totalFiles++;
+        }
+        fs_closedir(&dir);
+
+        if (totalFiles > 0) {
+            sfxList.count = totalFiles;
+            sfxList.names = (char (*)[MAX_NAME_LEN])malloc(totalFiles * MAX_NAME_LEN);
+            sfxPreloadedBank = new CSample[totalFiles];
+
+            if (sfxList.names != NULL && sfxPreloadedBank != NULL) {
+                memset(sfxList.names, 0, totalFiles * MAX_NAME_LEN);
+                if (fs_opendir(&dir, "sfx") == 0) {
+                    int index = 0;
+                    while (fs_readdir(&dir, &ent) == 0 && index < totalFiles) {
+                        if (!ent.is_dir && strstr(ent.name, ".wav")) {
+                            strncpy(sfxList.names[index], ent.name, MAX_NAME_LEN - 1);
+                            
+                            snprintf(pathBuffer, sizeof(pathBuffer), "sfx/%s", ent.name);
+                            sfxPreloadedBank[index].Load(pathBuffer);
+                            
+                            index++;
+                        }
+                    }
+                    fs_closedir(&dir);
+                }
+            }
+        }
+    }
+}
+
+void inicializar_superficies_graficos() {
+    u32 negro    = color_rgb(0, 0, 0);
+    u32 blanco   = color_rgb(255, 255, 255);
+    u32 rojo     = color_rgb(255, 0, 0);
+    u32 verde    = color_rgb(0, 255, 0);
+    u32 azul     = color_rgb(0, 0, 255);
+    
+    u32 colores_gradientes[] = {blanco, rojo, verde, azul};
+    for(int i = 0; i < 4; i++) {
+        surf_gradientes[i] = create_surface(240, 30, 0);
+        if (surf_gradientes[i]) {
+            fill_horizontal_gradient(surf_gradientes[i], negro, colores_gradientes[i]);
+        }
+    }
+
+    u32 colores_mix[] = {rojo, verde, azul, blanco};
+    for(int i = 0; i < 4; i++) {
+        surf_mix[i] = create_surface(220, 32, 0);
+        if (surf_mix[i]) {
+            fill_horizontal_gradient(surf_mix[i], negro, colores_mix[i]);
+        }
+    }
+}
+
+// ========================================================================
+// HILO PRINCIPAL
+// ========================================================================
+int main(int argc, char **argv) {
+	(void)argc; (void)argv;
+
+	if (Init_Sistem("GPP Pro Suite") < 0) return 1;
 	Set_Video();
     
 	Input::init();
 	font.init();
 	mixer.init(44100, 2, 2048);
 
-	init_audio_test_resources();
+	cargar_listas_fijas();
+	inicializar_superficies_graficos();
 
 	CSample sfxMove, sfxPush;
 	sfxMove.Load("sfx/button.wav");
 	sfxPush.Load("sfx/push.wav");
 
 	SDL_Surface *sheet = load_img("gfx/icon.png");
+	
 	startup();
+	
+	mixer.setMasterVolume(global_volume);
 	mixer.playMusic("music/music.wav", true);
 	
 	icon *icons[MAX_TESTS];
-
 	icons[0] = quickLoad(sheet, 35, 5, 190, 200, 0.2);
 	icons[1] = quickLoad(sheet, 250, 5, 190, 200, 0.2);
 	icons[2] = quickLoad(sheet, 460, 5, 190, 200, 0.2);
 	icons[3] = quickLoad(sheet, 680, 5, 190, 200, 0.2);
-
 	icons[4] = quickLoad(sheet, 250, 230, 190, 210, 0.2);
 	icons[5] = quickLoad(sheet, 35, 230, 190, 210, 0.2);
 	icons[6] = quickLoad(sheet, 460, 240, 190, 200, 0.2);
@@ -128,65 +223,41 @@ int main(int argc, char **argv)
 	};
 
 	int sel = 0, scroll = 0, d_l = 0, u_l = 0, a_l = 0;
-
-	// Bandera para controlar el flujo de salida si decides implementar un botón de cierre
 	bool running = true; 
 
-	while (running)
-	{
+	while (running) {
 		Input::update();
 		bool d = Input::isPressed(0, BUTTON_DOWN);
 		bool u = Input::isPressed(0, BUTTON_UP);
 		bool a = Input::isPressed(0, BUTTON_A);
 
-		if (d && !d_l)
-		{
-			sel = (sel + 1) % MAX_TESTS;
-			mixer.playChannel(&sfxMove, 0, 128);
-		}
-		if (u && !u_l)
-		{
-			sel = (sel - 1 + MAX_TESTS) % MAX_TESTS;
-			mixer.playChannel(&sfxMove, 0, 128);
-		}
+		if (d && !d_l) { sel = (sel + 1) % MAX_TESTS; mixer.playChannel(&sfxMove, 0, global_volume); }
+		if (u && !u_l) { sel = (sel - 1 + MAX_TESTS) % MAX_TESTS; mixer.playChannel(&sfxMove, 0, global_volume); }
 
-		if (a && !a_l)
-		{
-			mixer.playChannel(&sfxPush, 0, 128);
-			if (tests[sel].action != NULL)
-			{
-				// Frenamos la música del menú para que no colisione con el test
-				mixer.stopMusic(); 
-				
+		if (a && !a_l) {
+			mixer.playChannel(&sfxPush, 0, global_volume);
+			if (tests[sel].action != NULL) {
 				tests[sel].action();
-				
-				// Al regresar, reestablecemos limpiamente el stream principal
-				mixer.stopMusic();
-				mixer.playMusic("music/music.wav", true);
+				mixer.setMasterVolume(global_volume);
 			}
 		}
-		d_l = d;
-		u_l = u;
-		a_l = a;
+		d_l = d; u_l = u; a_l = a;
 
-		if (sel >= scroll + VISIBLE_ITEMS)
-			scroll = sel - VISIBLE_ITEMS + 1;
-		if (sel < scroll)
-			scroll = sel;
+		if (sel >= scroll + VISIBLE_ITEMS) scroll = sel - VISIBLE_ITEMS + 1;
+		if (sel < scroll) scroll = sel;
 
 		render_background_gradient(logic, color_rgb(10, 15, 30), color_rgb(35, 55, 95));
 
+		// === SECCIÓN DE INTERFAZ ORIGINAL RESTAURADA ===
 		fontsize(16, 16);
 		print(20, 15, "TEST SUITE", color_rgb(0, 255, 255));
 		fill_rect(logic, 20, 36, 210, 2, color_rgb(0, 255, 255));
 		fill_rect(logic, 20, 38, 210, 2, color_rgb(120, 66, 255));
 		fill_rect(logic, 20, 40, 210, 2, color_rgb(255, 0, 0));
 
-		for (int i = 0; i < VISIBLE_ITEMS; i++)
-		{
+		for (int i = 0; i < VISIBLE_ITEMS; i++) {
 			int idx = scroll + i;
-			if (idx < MAX_TESTS)
-			{
+			if (idx < MAX_TESTS) {
 				renderItem(logic, &tests[idx], 40, 55 + (i * 42), (idx == sel), (idx == sel && a));
 			}
 		}
@@ -194,32 +265,34 @@ int main(int argc, char **argv)
 		fill_rect(logic, 305, 55, 3, 160, color_rgb(30, 35, 60));
 		int sY = 55 + (scroll * (160 - 30) / (MAX_TESTS - VISIBLE_ITEMS));
 		fill_rect(logic, 305, sY, 3, 30, color_rgb(0, 255, 255));
+		// ==============================================
 
 		fill_rect(logic, 0, 222, 320, 18, color_rgb(0, 0, 0));
 		font.draw(logic, MMX_FONT, (int)marqueeX, 225, infoText);
 
 		marqueeX -= 1.3f;
-		if (marqueeX < -1000.0f)
-			marqueeX = 320.0f;
+		if (marqueeX < -1000.0f) marqueeX = 320.0f;
 
 		Render();
 		Fps_sincronizar(60);
 	}
 
-	// ==========================================================
-	// LIBERACIÓN COMPLETA DE MEMORIA (Previene Memory Leaks en PS2)
-	// ==========================================================
-	free_audio_test_resources();
 	SDL_FreeSurface(sheet);
-
 	for(int i = 0; i < MAX_TESTS; i++) {
 		if(icons[i]) {
-			if(icons[i]->icon) {
-				SDL_FreeSurface(icons[i]->icon);
-			}
+			if(icons[i]->icon) SDL_FreeSurface(icons[i]->icon);
 			free(icons[i]);
 		}
 	}
+
+    if (musicList.names) free(musicList.names);
+    if (sfxList.names) free(sfxList.names);
+    if (sfxPreloadedBank) delete[] sfxPreloadedBank;
+
+    for(int i = 0; i < 4; i++) {
+        if (surf_gradientes[i]) SDL_FreeSurface(surf_gradientes[i]);
+        if (surf_mix[i])        SDL_FreeSurface(surf_mix[i]);
+    }
 
 	return 0;
 }
