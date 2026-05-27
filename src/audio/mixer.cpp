@@ -1,29 +1,17 @@
 #include <string.h>
 #include <stdio.h>
-
-#if defined(GC_BUILD)
-#include <gcsound.h>
-#endif
-
 #include <audio/mixer.h>
 #include <audio/WavDecoder.h>
 // #include <audio/MP3Decoder.h>
 
 Cmixer::Cmixer()
 {
-#if defined(GC_BUILD)
-    masterVolume = MAX_VOLUME;
-#else
     masterVolume = MAX_VOLUME;
     decoder = NULL;
-#endif
 }
 
 Cmixer::~Cmixer()
 {
-#if defined(GC_BUILD)
-    stopMusic();
-#else
     stopMusic();
 
     if (decoder)
@@ -31,22 +19,23 @@ Cmixer::~Cmixer()
         delete decoder;
         decoder = NULL;
     }
-#endif
 }
 
 bool Cmixer::init(int freq, int channels, int bufferSize)
 {
-#if defined(GC_BUILD)
-    GCSound_Init(); //INICIALIZA GC 
-    return true;
-#else
-    //INICILIZA SDL 
+    // Configuración base de la especificación de audio de SDL
     spec.freq = freq;
-    spec.format = AUDIO_S16LSB;
     spec.channels = channels;
     spec.samples = bufferSize;
     spec.callback = audioCallback;
     spec.userdata = this;
+
+    // FLAGS DE ARQUITECTURA: Asignar formato nativo según la consola
+#if defined(GC_BUILD)
+    spec.format = AUDIO_S16MSB; // GameCube (Big-Endian Nativo)
+#else
+    spec.format = AUDIO_S16LSB; // Android, PSP, PS2 (Little-Endian)
+#endif
 
     if (SDL_OpenAudio(&spec, NULL) < 0)
     {
@@ -54,14 +43,13 @@ bool Cmixer::init(int freq, int channels, int bufferSize)
         return false;
     }
 
-    SDL_PauseAudio(0);
+    SDL_PauseAudio(0); // Despierta tu driver de audio asíncrono
     return true;
-#endif
 }
 
-/* ========================= */
-/* UTILS */
-/* ========================= */
+/* ======================================================================== */
+/* UTILS                                                                    */
+/* ======================================================================== */
 
 bool Cmixer::isWav(const char *filename)
 {
@@ -79,19 +67,12 @@ bool Cmixer::isMp3(const char *filename)
     return (strcasecmp(ext, ".mp3") == 0);
 }
 
-/* ========================= */
-/* MUSIC */
-/* ========================= */
+/* ======================================================================== */
+/* MUSIC (Streaming desde almacenamiento masivo)                            */
+/* ======================================================================== */
 
 bool Cmixer::playMusic(const char *filename, bool loop)
 {
-
-#if defined(GC_BUILD)
-
-    GCSound_PlayMusic(filename,0); //en 0 detecta la frecuencia 
-    return true;
-#else
-
     stopMusic();
 
     FS_FILE *fp = fs_open(filename, "rb");
@@ -142,16 +123,10 @@ bool Cmixer::playMusic(const char *filename, bool loop)
 
     musicStream.play();
     return true;
-#endif
 }
-
-///////////////////////////////////////////////////////////////////////
 
 void Cmixer::stopMusic()
 {
-#if defined(GC_BUILD)
-    GCSound_StopMusic();
-#else
     musicStream.stop();
 
     if (decoder)
@@ -159,30 +134,21 @@ void Cmixer::stopMusic()
         delete decoder;
         decoder = NULL;
     }
-#endif
 }
 
-/* ========================= */
-/* SFX */
-/* ========================= */
+/* ======================================================================== */
+/* SFX (Canales de Efectos de Sonido en RAM)                                */
+/* ======================================================================== */
 
 int Cmixer::playChannel(CSample *s, bool loop, int volume, int channel)
 {
-
- #if defined(GC_BUILD)
-    // Ajuste de volumen para GCSound (0-127)
-    int vol_gc = (volume > 127) ? 127 : volume;
-    GCSound_PlaySample(s->sample, vol_gc, vol_gc);
-    return 0;
-#else   
-
     if (!s || !s->getData())
         return -1;
 
     if (volume < 0) volume = 0;
     if (volume > MAX_VOLUME) volume = MAX_VOLUME;
 
-    // canal específico
+    // Canal específico requerido
     if (channel >= 0 && channel < MAX_CHANNELS)
     {
         channels[channel] = *s;
@@ -193,7 +159,7 @@ int Cmixer::playChannel(CSample *s, bool loop, int volume, int channel)
         return channel;
     }
 
-    // automático
+    // Búsqueda de canal libre automático
     for (int i = 0; i < MAX_CHANNELS; i++)
     {
         if (!channels[i].getActive())
@@ -208,7 +174,6 @@ int Cmixer::playChannel(CSample *s, bool loop, int volume, int channel)
     }
 
     return -1;
-#endif
 }
 
 void Cmixer::stopChannel(int id)
@@ -227,28 +192,26 @@ void Cmixer::stopAll()
 
 void Cmixer::setMasterVolume(int vol)
 {
-if (vol < 0) vol = 0;
+    if (vol < 0) vol = 0;
     if (vol > MAX_VOLUME) vol = MAX_VOLUME;
     masterVolume = vol;
-
-#if defined(GC_BUILD)
-    // Esto actualizará la música que está sonando actualmente en la SD
-    GCSound_SetMusicVolume(vol, vol); 
-#endif
 }
 
-/* ========================= */
-/* MIX */
-/* ========================= */
+/* ======================================================================== */
+/* MIX (Mezclador por Software Unificado Multiplataforma)                    */
+/* ======================================================================== */
 
 void Cmixer::mix(u8 *output, int len)
 {
     Sint16 *out = (Sint16 *)output;
     int totalSamples = len / sizeof(Sint16);
 
+    // Inicializar el búfer de salida con silencio absoluto (ceros)
     memset(out, 0, len);
 
-    /* ===== SFX ===== */
+    /* ========================================== */
+    /* 1. PROCESAMIENTO DE EFECTOS DE SONIDO (SFX)*/
+    /* ========================================== */
     for (int ch = 0; ch < MAX_CHANNELS; ch++)
     {
         if (!channels[ch].getActive())
@@ -259,6 +222,18 @@ void Cmixer::mix(u8 *output, int len)
         int size = channels[ch].getSize() / sizeof(Sint16);
 
         int vol = (channels[ch].getVolume() * masterVolume) / MAX_VOLUME;
+
+        // 🔥 DEBUG EXCLUSIVO PARA GAMECUBE (Rastrear por qué no suena)
+#if defined(GC_BUILD)
+        static int debugTicks = 0;
+        if (debugTicks++ % 100 == 0) { // No saturar la consola, imprime cada 100 llamadas
+            printf("[libGPP DEBUG] Ch: %d | DataPtr: %p | TotalSamples: %d | Pos: %d | Vol: %d\n", 
+                   ch, data, size, pos, vol);
+            if (data) {
+                printf("[libGPP DATA] Primeros bytes raw: %04X %04X\n", data[0], data[1]);
+            }
+        }
+#endif
 
         for (int i = 0; i < totalSamples; i++)
         {
@@ -274,25 +249,46 @@ void Cmixer::mix(u8 *output, int len)
             }
 
             int val = data[pos++];
+
+            // FLAGS GAMECUBE: Desempaquetar Little-Endian del WAV a entero plano
+#if defined(GC_BUILD)
+            val = (Sint16)(((val & 0xFF) << 8) | ((val >> 8) & 0xFF));
+#endif
+
             val = (val * vol) / MAX_VOLUME;
 
+            // Obtener de forma segura lo acumulado por canales anteriores
+#if defined(GC_BUILD)
+            Sint16 current_out = (Sint16)(((out[i] & 0xFF) << 8) | ((out[i] >> 8) & 0xFF));
+            int mixed = current_out + val;
+#else
             int mixed = out[i] + val;
+#endif
 
+            // Protección de clipping duro (Saturación digital)
             if (mixed > 32767) mixed = 32767;
             if (mixed < -32768) mixed = -32768;
 
+            // Almacenar el acumulado intermedio en el formato correcto
+#if defined(GC_BUILD)
+            out[i] = (Sint16)(((mixed & 0xFF) << 8) | ((mixed >> 8) & 0xFF));
+#else
             out[i] = (Sint16)mixed;
+#endif
         }
 
         channels[ch].setPosition(pos);
     }
 
-    /* ===== MUSIC ===== */
-    static u8 temp[16384]; // 🔥 seguro
+    /* ========================================== */
+    /* 2. PROCESAMIENTO DE MÚSICA DE FONDO (BGM)  */
+    /* ========================================== */
+    static u8 temp[16384]; // Búfer estático alineado
 
     if (len > (int)sizeof(temp))
         len = sizeof(temp);
 
+    // Lee el streaming decodificado lineal
     int read = musicStream.read(temp, len);
 
     Sint16 *mdata = (Sint16 *)temp;
@@ -301,20 +297,37 @@ void Cmixer::mix(u8 *output, int len)
     for (int i = 0; i < totalSamples && i < musicSamples; i++)
     {
         int val = mdata[i];
+
+        // FLAGS GAMECUBE: Desempaquetar Little-Endian del stream de música
+#if defined(GC_BUILD)
+        val = (Sint16)(((val & 0xFF) << 8) | ((val >> 8) & 0xFF));
+#endif
+
         val = (val * masterVolume) / MAX_VOLUME;
 
+        // Mezclar música sobre la mezcla previa de efectos de sonido
+#if defined(GC_BUILD)
+        Sint16 current_out = (Sint16)(((out[i] & 0xFF) << 8) | ((out[i] >> 8) & 0xFF));
+        int mixed = current_out + val;
+#else
         int mixed = out[i] + val;
+#endif
 
         if (mixed > 32767) mixed = 32767;
         if (mixed < -32768) mixed = -32768;
 
+        // Volcar el resultado final empaquetado para el hardware destino
+#if defined(GC_BUILD)
+        out[i] = (Sint16)(((mixed & 0xFF) << 8) | ((mixed >> 8) & 0xFF));
+#else
         out[i] = (Sint16)mixed;
+#endif
     }
 }
 
-/* ========================= */
-/* CALLBACK */
-/* ========================= */
+/* ======================================================================== */
+/* CALLBACK                                                                 */
+/* ======================================================================== */
 
 void Cmixer::audioCallback(void *userdata, u8 *stream, int len)
 {
