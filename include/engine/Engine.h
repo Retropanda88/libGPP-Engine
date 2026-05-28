@@ -24,4 +24,7 @@
 #include <engine/log.h>
 
 
+#include <system/gpp_time.h>
+
+
 #endif // ENGINE_H_

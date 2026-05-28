@@ -806,7 +806,7 @@ void fill_horizontal_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color
 }
 
 
-/* --------------------------------------------------------- */
+
 void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 {
 	if (!surface)
@@ -826,13 +826,18 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 	SDL_GetRGB(color1, surface->format, &r1, &g1, &b1);
 	SDL_GetRGB(color2, surface->format, &r2, &g2, &b2);
 
+	// Grosor de la barra de color (1 = Suave original, 4 a 8 = Bloques estilo Pixel Art)
+	const int step = 6; 
+
 #if defined(PSP_BUILD)
 	/* ================= PSP (BGR565) ================= */
 
 	Uint16 *pixels = (Uint16 *) surface->pixels;
 	int pitch = surface->pitch >> 1;	// /2
 	int y;
-	for (y = 0; y < h; y++)
+	
+	// Avanzamos verticalmente saltando según el tamaño del bloque (step)
+	for (y = 0; y < h; y += step)
 	{
 		int t = (y * 255) / (h - 1);
 
@@ -840,13 +845,16 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 		int g = (g1 * (255 - t) + g2 * t) >> 8;
 		int b = (b1 * (255 - t) + b2 * t) >> 8;
 
-		//Uint16 c = ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3));
 		Uint32 c = SDL_MapRGB(surface->format, r, g, b);
 
-		Uint16 *row = pixels + y * pitch;
-		int x;
-		for (x = 0; x < w; x++)
-			row[x] = (Uint16)c;
+		// Rellenamos el bloque de líneas con el mismo color calculado
+		for (int b_y = 0; b_y < step && (y + b_y) < h; b_y++)
+		{
+			Uint16 *row = pixels + (y + b_y) * pitch;
+			int x;
+			for (x = 0; x < w; x++)
+				row[x] = (Uint16)c;
+		}
 	}
 
 #else
@@ -857,7 +865,9 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 
 	Uint32 a = surface->format->Amask;
 	int y;
-	for (y = 0; y < h; y++)
+	
+	// Avanzamos verticalmente saltando según el tamaño del bloque (step)
+	for (y = 0; y < h; y += step)
 	{
 		int t = (y * 255) / (h - 1);
 
@@ -870,16 +880,21 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 			(r << surface->format->Rshift) |
 			(g << surface->format->Gshift) | (b << surface->format->Bshift);
 
-		Uint32 *row = pixels + y * pitch;
-		int x;
-		for (x = 0; x < w; x++)
-			row[x] = c;
+		// Rellenamos el bloque de líneas con el mismo color calculado
+		for (int b_y = 0; b_y < step && (y + b_y) < h; b_y++)
+		{
+			Uint32 *row = pixels + (y + b_y) * pitch;
+			int x;
+			for (x = 0; x < w; x++)
+				row[x] = c;
+		}
 	}
 #endif
 
 	if (SDL_MUSTLOCK(surface))
 		SDL_UnlockSurface(surface);
 }
+
 
 
 /* --------------------------------------------------------- */

@@ -158,13 +158,13 @@ void PlatformInput::poll(InputSystem* system)
     Uint8* keys = SDL_GetKeyState(NULL);
     u32 maskPlayer0 = 0;
 
-    if (keys[SDLK_z])      maskPlayer0 |= (1u << BUTTON_A);
-    if (keys[SDLK_x])      maskPlayer0 |= (1u << BUTTON_B);
-    if (keys[SDLK_a])      maskPlayer0 |= (1u << BUTTON_X);
-    if (keys[SDLK_s])      maskPlayer0 |= (1u << BUTTON_Y);
+    if (keys[SDLK_a])      maskPlayer0 |= (1u << BUTTON_A);
+    if (keys[SDLK_b])      maskPlayer0 |= (1u << BUTTON_B);
+    if (keys[SDLK_c])      maskPlayer0 |= (1u << BUTTON_X);
+    if (keys[SDLK_d])      maskPlayer0 |= (1u << BUTTON_Y);
 
-    if (keys[SDLK_q])      maskPlayer0 |= (1u << BUTTON_L1);
-    if (keys[SDLK_w])      maskPlayer0 |= (1u << BUTTON_R1);
+    if (keys[SDLK_l])      maskPlayer0 |= (1u << BUTTON_L1);
+    if (keys[SDLK_r])      maskPlayer0 |= (1u << BUTTON_R1);
 
     if (keys[SDLK_RETURN]) maskPlayer0 |= (1u << BUTTON_START);
     if (keys[SDLK_RSHIFT]) maskPlayer0 |= (1u << BUTTON_SELECT);
