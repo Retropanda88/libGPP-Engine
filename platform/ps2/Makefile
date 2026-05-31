@@ -55,7 +55,7 @@ EE_LIBS = \
 	-lgskit -ldmakit \
 	-L$(PS2SDK)/ports/lib \
 	-lsdlmixer -lSDL_image -lpng -ljpeg -lSDL \
-	-laudsrv \
+	-laudsrv -lcdvd\
 	-L$(PS2SDK)/ee/lib \
 	-lm -lc -lkernel -lstdc++
 
@@ -89,9 +89,14 @@ $(OBJ_DIR)test_engine.o: $(TEST_MAIN_CPP)
 	$(EE_CXX) -c $< -o $@ $(EE_CXXFLAGS)
 
 # Link final del ELF (Regla oficial PS2SDK)
+#$(TARGET): $(EE_OBJS)
+#	$(EE_CC) -mno-crt0 -T$(PS2SDK)/ee/startup/linkfile $(EE_CXXFLAGS) \
+#		-o $(TARGET) $(PS2SDK)/ee/startup/crt0.o $(EE_OBJS) $(EE_LDFLAGS) $(EE_LIBS)
+
+# Link final del ELF (Regla oficial PS2SDK de libGPP-Engine)
 $(TARGET): $(EE_OBJS)
 	$(EE_CC) -mno-crt0 -T$(PS2SDK)/ee/startup/linkfile $(EE_CXXFLAGS) \
-		-o $(TARGET) $(PS2SDK)/ee/startup/crt0.o $(EE_OBJS) $(EE_LDFLAGS) $(EE_LIBS)
+		-o $(TARGET) $(PS2SDK)/ee/startup/crt0.o $(EE_OBJS) $(EE_LDFLAGS) $(EE_LIBS) -lcdvd -lkernel
 
 
 # -------------------------

@@ -848,7 +848,8 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 		Uint32 c = SDL_MapRGB(surface->format, r, g, b);
 
 		// Rellenamos el bloque de líneas con el mismo color calculado
-		for (int b_y = 0; b_y < step && (y + b_y) < h; b_y++)
+		int b_y;
+		for (b_y = 0; b_y < step && (y + b_y) < h; b_y++)
 		{
 			Uint16 *row = pixels + (y + b_y) * pitch;
 			int x;
@@ -881,7 +882,8 @@ void fill_vertical_gradient(SDL_Surface * surface, Uint32 color1, Uint32 color2)
 			(g << surface->format->Gshift) | (b << surface->format->Bshift);
 
 		// Rellenamos el bloque de líneas con el mismo color calculado
-		for (int b_y = 0; b_y < step && (y + b_y) < h; b_y++)
+		int b_y;
+		for (b_y = 0; b_y < step && (y + b_y) < h; b_y++)
 		{
 			Uint32 *row = pixels + (y + b_y) * pitch;
 			int x;

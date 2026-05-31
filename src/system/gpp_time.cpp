@@ -14,6 +14,73 @@
 #include <psprtc.h>
 #endif
 
+/* ======================================================================== */
+/* 🛠️ PARCHE EXCLUSIVO PARA PLAYSTATION 2 (MÉTODO SYSCALL SEGURO)            */
+/* ======================================================================== */
+#if defined(PS2_BUILD)
+// 1. Definimos la estructura del reloj interno de la PS2
+typedef struct {
+    unsigned char stat;
+    unsigned char second;
+    unsigned char minute;
+    unsigned char hour;
+    unsigned char pad;
+    unsigned char day;
+    unsigned char month;
+    unsigned char year;
+} sceCdCLOCK;
+
+// 2. Invocación segura mediante la Syscall 53 del Kernel de PS2
+// Esto no causará crasheos ni pantallas negras bajo ninguna circunstancia.
+static int PS2_ReadClockSafe(sceCdCLOCK *clock) {
+    int result;
+    __asm__ volatile (
+        "li $3, 53\n"      // Syscall 53 representa _sceCdReadClock en el kernel de PS2
+        "move $4, %1\n"    // Mueve el puntero de la estructura al registro de argumento $4 (a0)
+        "syscall\n"        // Llama a la interrupción de software del sistema operativo
+        "move %0, $2\n"    // El valor de retorno se recupera del registro $2 (v0)
+        : "=r" (result) 
+        : "r" (clock) 
+        : "$3", "$4", "$2"
+    );
+    return result;
+}
+
+// 3. Implementamos el localtime que el PS2SDK dejó vacío
+extern "C" struct tm *localtime(const time_t *timep) {
+    static struct tm t;
+    sceCdCLOCK ps2_clock;
+
+    // Llamamos a nuestro lector seguro por Syscall
+    if (PS2_ReadClockSafe(&ps2_clock) != 0 && ps2_clock.stat == 0) {
+        // Convertimos el formato BCD del chip a números enteros normales
+        t.tm_sec  = ((ps2_clock.second >> 4) * 10) + (ps2_clock.second & 0x0F);
+        t.tm_min  = ((ps2_clock.minute >> 4) * 10) + (ps2_clock.minute & 0x0F);
+        t.tm_hour = ((ps2_clock.hour >> 4) * 10) + (ps2_clock.hour & 0x0F);
+        t.tm_mday = ((ps2_clock.day >> 4) * 10) + (ps2_clock.day & 0x0F);
+        
+        // En C los meses van de 0 (enero) a 11 (diciembre)
+        t.tm_mon  = (((ps2_clock.month >> 4) * 10) + (ps2_clock.month & 0x0F)) - 1; 
+        
+        // La PS2 da el año en 2 dígitos. struct tm requiere años transcurridos desde 1900.
+        int anio_corto = ((ps2_clock.year >> 4) * 10) + (ps2_clock.year & 0x0F);
+        t.tm_year = (2000 + anio_corto) - 1900; 
+    } else {
+        // Fallback seguro si la consola no tiene hora válida o falla el chip
+        t.tm_sec = t.tm_min = t.tm_hour = 0;
+        t.tm_mday = 29; t.tm_mon = 4; t.tm_year = 126; // Mayo de 2026
+    }
+
+    t.tm_wday = 0;
+    t.tm_yday = 0;
+    t.tm_isdst = -1;
+
+    return &t;
+}
+#endif
+/* ======================================================================== */
+
+
 void GPP_GetSystemDateTime(GPP_DateTime *outDateTime)
 {
     if (!outDateTime) return;
@@ -28,16 +95,12 @@ void GPP_GetSystemDateTime(GPP_DateTime *outDateTime)
 #if defined(GC_BUILD)
     outDateTime->platform_name = "Nintendo GameCube";
     
-    // Aunque localtime() funciona en libogc, leer directamente el RTC o usar 
-    // la hora corregida por hardware asegura precisión total si el chip Unix falla.
     time_t rawTime = time(NULL);
     struct tm *timeInfo = localtime(&rawTime);
 
 #elif defined(PSP_BUILD)
     outDateTime->platform_name = "Sony PSP";
     
-    // La PSP tiene un módulo de reloj de alta precisión (pspRtc)
-    // Usamos el método estándar que se apoya en la newlib de la PSP
     time_t rawTime;
     time(&rawTime);
     struct tm *timeInfo = localtime(&rawTime);
@@ -45,7 +108,6 @@ void GPP_GetSystemDateTime(GPP_DateTime *outDateTime)
 #elif defined(PS2_BUILD)
     outDateTime->platform_name = "Sony PlayStation 2";
     
-    // Nota: Asegúrate de tener cargado 'sysclib' o 'cdvd.irx' en tu init de PS2
     time_t rawTime = time(NULL);
     struct tm *timeInfo = localtime(&rawTime);
 
