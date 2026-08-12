@@ -1068,26 +1068,42 @@ SDL_Surface *load_texture_from_mem(u8 * buffer, int len)
 	return fmt;
 }
 
+
+
 /* --------------------------------------------------------- */
 /* rotozoom FIX */
 /* --------------------------------------------------------- */
 SDL_Surface *rotozoom_create(SDL_Surface * src, double angle, double zoom)
 {
-	SDL_Surface *temp = rotozoomSurface(src, angle, zoom, SMOOTHING_ON);
-	if (!temp)
-	{
-		printf("rotozoomSurface error: %s\n", SDL_GetError());
-		return NULL;			/* FIX */
-	}
+    SDL_Surface *temp = rotozoomSurface(src, angle, zoom, SMOOTHING_ON);
+    if (!temp)
+    {
+        printf("rotozoomSurface error: %s\n", SDL_GetError());
+        return NULL;
+    }
 
-	apply_transparency(temp, 0, 0, 0);
-	return temp;
+    //TRUCO CLAVE EN SDL 1.2:
+    // Forzamos a que la superficie del rotozoom no use alfa por píxel,
+    // permitiendo que responda al fundido global (fadeTo / apply_alpha).
+    if (temp->format != NULL) {
+        temp->format->Amask = 0; 
+    }
+
+    //aplica tranparencia a el rectangulo nego de la superficie
+    apply_transparency(temp, 0, 0, 0);
+
+    return temp;
 }
 
-void rotozoom_set_position(SDL_Surface * src, int x, int y)
+
+//no deberia pinter solo calcular las posiciones de x y
+void rotozoom_set_position(SDL_Surface * src, int *x, int *y)
 {
-	SDL_Rect d = { x - src->w / 2, y - src->h / 2, src->w, src->h };
-	SDL_BlitSurface(src, NULL, logic, &d);
+    if (src == NULL || x == NULL || y == NULL) return;
+
+    // Usamos *x y *y para operar con el valor numérico, no con la dirección de memoria
+    *x = (*x) - (src->w / 2);
+    *y = (*y) - (src->h / 2);
 }
 
 void rotozoom_destroy(SDL_Surface * src)

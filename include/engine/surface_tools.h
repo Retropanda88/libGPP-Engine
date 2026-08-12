@@ -111,7 +111,8 @@ extern "C"
 /**
  * @brief Set position for a rotozoom surface.
  */
-	void rotozoom_set_position(SDL_Surface * src, int x, int y);
+	// calcula la posicion de x y, src es necearia para clacular la nueva posicion
+	void rotozoom_set_position(SDL_Surface * src, int *x, int *y);
 
 /**
  * @brief Destroy a rotozoom surface.

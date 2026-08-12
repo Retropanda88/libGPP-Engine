@@ -27,6 +27,11 @@ protected:
     bool hasRotationTarget;
     float rotationSpeed;
 
+    //funciones de escalado
+    float targetScale;
+    bool hasScaleTarget;
+    float scaleSpeed;
+
     SDL_Surface* surface;
     
     UIElement* parent;
@@ -51,6 +56,7 @@ public:
     // Funciones para animar
     void fadeTo(uint8_t targetAlpha, float speed);
     void rotateTo(float targetRot, float speed);
+    void zoomTo(float targetScale, float speed);
     
     virtual void update();
     virtual void draw();
