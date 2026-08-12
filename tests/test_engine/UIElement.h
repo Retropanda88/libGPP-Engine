@@ -44,7 +44,8 @@ public:
 
     bool addChild(UIElement* child);
     bool setImage(const char* filepath);
-    
+    bool setImageFromSurface(SDL_Surface* surf);
+
     // Setters básicos y Consultas
     void setAlpha(uint8_t alpha);
     uint8_t getAlpha() const { return this->alpha; }
@@ -57,6 +58,13 @@ public:
     void fadeTo(uint8_t targetAlpha, float speed);
     void rotateTo(float targetRot, float speed);
     void zoomTo(float targetScale, float speed);
+
+    int16_t getX() const { return this->x; }
+    int16_t getY() const { return this->y; }
+
+    float getScale() const { return this->scale; }
+    float getRotation() const { return this->rotation; }
+
     
     virtual void update();
     virtual void draw();
