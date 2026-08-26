@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <filesystem/fs.h>
+
 #include <audio/sample.h>
 #include <engine/types.h>
 
@@ -13,6 +15,7 @@ CSample::CSample()
     active = false;
     loop = false;
     volume = 0;
+    paused = false;
 }
 
 CSample::~CSample()
@@ -55,8 +58,9 @@ static bool mem_skip(const u8 * &ptr, const u8 * end, u32 size)
 }
 
 /* ======================================================================== */
-/* CARGAR DESDE ARCHIVO (SD / HDD)                                          */
+/* CARGAR DESDE ARCHIVO (SD / HDD /mass:)                                          */
 /* ======================================================================== */
+
 bool CSample::Load(const char *filename)
 {
     // 1. Verificar la extensión del archivo
@@ -76,8 +80,8 @@ bool CSample::Load(const char *filename)
         return false;
     }
 
-    // 2. Abrir archivo en modo binario
-    FILE *fp = fopen(filename, "rb");
+    // 2. Abrir archivo en modo binario usando tu FS
+    FS_FILE *fp = fs_open(filename, "rb");
 
     if (!fp)
     {
@@ -87,20 +91,21 @@ bool CSample::Load(const char *filename)
 
     // 3. Leer la cabecera RIFF/WAV
     char riff[4];
-    if (fread(riff, 1, 4, fp) != 4 || strncmp(riff, "RIFF", 4) != 0)
+    if (fs_read(riff, 1, 4, fp) != 4 || strncmp(riff, "RIFF", 4) != 0)
     {
         printf("Error: no es un archivo RIFF válido\n");
-        fclose(fp);
+        fs_close(fp);
         return false;
     }
 
-    fseek(fp, 4, SEEK_CUR); // Saltar tamaño total del archivo (4 bytes)
+    // Saltar tamaño total del archivo (4 bytes)
+    fs_seek(fp, 4, FS_SEEK_CUR);
 
     char wave[4];
-    if (fread(wave, 1, 4, fp) != 4 || strncmp(wave, "WAVE", 4) != 0)
+    if (fs_read(wave, 1, 4, fp) != 4 || strncmp(wave, "WAVE", 4) != 0)
     {
         printf("Error: archivo no es WAV\n");
-        fclose(fp);
+        fs_close(fp);
         return false;
     }
 
@@ -109,9 +114,9 @@ bool CSample::Load(const char *filename)
     u32 chunkSize = 0;
     bool foundData = false;
 
-    while (fread(chunkId, 1, 4, fp) == 4)
+    while (fs_read(chunkId, 1, 4, fp) == 4)
     {
-        if (fread(&chunkSize, 4, 1, fp) != 1) break;
+        if (fs_read(&chunkSize, 4, 1, fp) != 1) break;
 
         // SOLAMENTE PARA GAMECUBE: Invierte el Endianness del tamaño del chunk
 #if defined(GC_BUILD)
@@ -128,14 +133,15 @@ bool CSample::Load(const char *filename)
         }
         else
         {
-            fseek(fp, chunkSize, SEEK_CUR); // Saltar chunk de forma segura
+            // Saltar chunk de forma segura utilizando fs_seek
+            fs_seek(fp, chunkSize, FS_SEEK_CUR);
         }
     }
 
     if (!foundData)
     {
         printf("Error: no se encontró la sección de datos PCM\n");
-        fclose(fp);
+        fs_close(fp);
         return false;
     }
 
@@ -151,13 +157,13 @@ bool CSample::Load(const char *filename)
     if (!Data)
     {
         printf("Error: memoria insuficiente (%u bytes solicitados)\n", chunkSize);
-        fclose(fp);
+        fs_close(fp);
         return false;
     }
 
     // 6. Leer los datos PCM (audio crudo)
-    u32 read = fread(Data, 1, chunkSize, fp);
-    fclose(fp);
+    u32 read = fs_read(Data, 1, chunkSize, fp);
+    fs_close(fp);
 
     if (read != chunkSize)
     {

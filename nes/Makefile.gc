@@ -1,0 +1,151 @@
+# =========================================================================
+# Makefile para GameCube (devkitPPC) - libnes.a
+# =========================================================================
+
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Por favor configura DEVKITPPC en tu entorno. export DEVKITPPC=<ruta a>/devkitPPC")
+endif
+
+include $(DEVKITPPC)/gamecube_rules
+
+# Configuración de directorios locales
+OBJ_DIR     := obj_gc
+TARGET_DIR  := lib/gc
+LIB         := $(TARGET_DIR)/libnes.a
+
+# Opciones de generación de código de devkitPPC para PowerPC
+CFLAGS      :=  -O2 -Wall $(MACHDEP) -I. -I$(LIBOGC_INC)
+CXXFLAGS    := $(CFLAGS) -fno-exceptions
+
+# --- 1. Detección automática de todos los archivos en src/ ---
+ALL_C       := $(wildcard src/*.c)
+ALL_CPP     := $(wildcard src/*.cpp)
+ALL_S       := $(wildcard src/*.S)
+
+# --- 2. LISTA DE EXCLUSIÓN COMPLETA (La misma que PS2/PSP) ---
+EXCLUDE_SOURCES := src/nes_exsound.cpp src/nes_vrc6.cpp src/nes_vrc7.cpp \
+                   src/nes_fds.cpp src/nes_mmc5.cpp src/nes_n106.cpp \
+                   src/nes_fme7.cpp src/render_bg.cpp src/render_tile.cpp \
+                   src/render_spr.cpp src/render_spr_tile.cpp src/do_scanline.cpp \
+                   src/nes_emulate_frame.cpp src/nes_rom_correct.cpp \
+                   src/nes_set_controller.cpp src/nes_pad_command.cpp src/nes_pad_state.cpp \
+                   src/nes_set_cycles.cpp src/nes_get_cycles.cpp \
+                   src/nsf.cpp src/nes_apu.c
+
+# --- 3. Filtrar los archivos principales ---
+SOURCES_C   := $(filter-out $(EXCLUDE_SOURCES), $(ALL_C))
+SOURCES_CPP := $(filter-out $(EXCLUDE_SOURCES), $(ALL_CPP))
+SOURCES_S   := $(filter-out $(EXCLUDE_SOURCES), $(ALL_S))
+
+# Mapeo de objetos dirigidos a obj_gc/
+OBJS        := $(patsubst src/%.c, $(OBJ_DIR)/%.o, $(SOURCES_C)) \
+               $(patsubst src/%.cpp, $(OBJ_DIR)/%.o, $(SOURCES_CPP)) \
+               $(patsubst src/%.S, $(OBJ_DIR)/%.o, $(SOURCES_S))
+
+# --- Reglas Principales ---
+
+all: $(LIB)
+
+$(LIB): $(OBJS)
+	@mkdir -p $(TARGET_DIR)
+	$(AR) -cru $@ $(OBJS)
+	@powerpc-eabi-ranlib $@
+	@echo "=== ¡Librería GameCube guardada en $@! ==="
+
+# Compilación de objetos individuales forzando la ruta obj_gc/
+$(OBJ_DIR)/%.o: src/%.c
+	@mkdir -p $(OBJ_DIR)
+	@echo "Compilando (C): $(notdir $<)"
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: src/%.cpp
+	@mkdir -p $(OBJ_DIR)
+	@echo "Compilando (C++): $(notdir $<)"
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: src/%.S
+	@mkdir -p $(OBJ_DIR)
+	@echo "Compilando (ASM): $(notdir $<)"
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(OBJ_DIR)
+	rm -rf $(TARGET_DIR)
+	@echo "Limpieza de GameCube completada."
+
+.PHONY: all clean# =========================================================================
+#      Makefile para GameCube (devkitPPC) - libnes.a (CORREGIDO)
+# =========================================================================
+
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Por favor configura DEVKITPPC en tu entorno. export DEVKITPPC=<ruta a>/devkitPPC")
+endif
+
+include $(DEVKITPPC)/gamecube_rules
+
+# Configuración de directorios locales
+OBJ_DIR     := obj_gc
+TARGET_DIR  := lib/gc
+LIB         := $(TARGET_DIR)/libnes.a
+
+# Opciones de generación de código de devkitPPC para PowerPC (-DGC_BUILD añadido)
+CFLAGS      := -O2 -Wall $(MACHDEP) -I. -I$(LIBOGC_INC) -DGC_BUILD
+CXXFLAGS    := $(CFLAGS) -fno-exceptions
+
+# --- 1. Detección automática de todos los archivos en src/ ---
+ALL_C       := $(wildcard src/*.c)
+ALL_CPP     := $(wildcard src/*.cpp)
+ALL_S       := $(wildcard src/*.S)
+
+# --- 2. LISTA DE EXCLUSIÓN MODIFICADA (Quitamos nes_apu.c para incluir el audio) ---
+EXCLUDE_SOURCES := src/nes_exsound.cpp src/nes_vrc6.cpp src/nes_vrc7.cpp \
+                   src/nes_fds.cpp src/nes_mmc5.cpp src/nes_n106.cpp \
+                   src/nes_fme7.cpp src/render_bg.cpp src/render_tile.cpp \
+                   src/render_spr.cpp src/render_spr_tile.cpp src/do_scanline.cpp \
+                   src/nes_emulate_frame.cpp src/nes_rom_correct.cpp \
+                   src/nes_set_controller.cpp src/nes_pad_command.cpp src/nes_pad_state.cpp \
+                   src/nes_set_cycles.cpp src/nes_get_cycles.cpp \
+                   src/nsf.cpp
+
+# --- 3. Filtrar los archivos principales ---
+SOURCES_C   := $(filter-out $(EXCLUDE_SOURCES), $(ALL_C))
+SOURCES_CPP := $(filter-out $(EXCLUDE_SOURCES), $(ALL_CPP))
+SOURCES_S   := $(filter-out $(EXCLUDE_SOURCES), $(ALL_S))
+
+# Mapeo de objetos dirigidos a obj_gc/
+OBJS        := $(patsubst src/%.c, $(OBJ_DIR)/%.o, $(SOURCES_C)) \
+               $(patsubst src/%.cpp, $(OBJ_DIR)/%.o, $(SOURCES_CPP)) \
+               $(patsubst src/%.S, $(OBJ_DIR)/%.o, $(SOURCES_S))
+
+# --- Reglas Principales ---
+
+all: $(LIB)
+
+$(LIB): $(OBJS)
+	@mkdir -p $(TARGET_DIR)
+	$(AR) -cru $@ $(OBJS)
+	@powerpc-eabi-ranlib $@
+	@echo "=== ¡Librería GameCube guardada en $@! ==="
+
+# Compilación de objetos individuales forzando la ruta obj_gc/
+$(OBJ_DIR)/%.o: src/%.c
+	@mkdir -p $(OBJ_DIR)
+	@echo "Compilando (C): $(notdir $<)"
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: src/%.cpp
+	@mkdir -p $(OBJ_DIR)
+	@echo "Compilando (C++): $(notdir $<)"
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: src/%.S
+	@mkdir -p $(OBJ_DIR)
+	@echo "Compilando (ASM): $(notdir $<)"
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(OBJ_DIR)
+	rm -rf $(TARGET_DIR)
+	@echo "Limpieza de GameCube completada."
+
+.PHONY: all clean

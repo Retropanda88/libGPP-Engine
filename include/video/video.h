@@ -44,7 +44,7 @@ extern SDL_Surface *logic;
 #if defined(PSP_BUILD)
 extern u16 *fb ;
 #else
-extern u32 *fb;
+//extern u16 *fb;
 #endif
 
 /**
@@ -67,7 +67,7 @@ int Init_Sistem(const char *msg);
  * @param height Screen height in pixels.
  * @return 0 on success, non-zero value on error.
  */
-int Set_Video(void);
+int Set_Video(const int w, const int h);
 
 /*startup logo*/
 void startup();

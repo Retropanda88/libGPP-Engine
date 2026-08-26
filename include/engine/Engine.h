@@ -7,6 +7,7 @@
 #include <font/font.h>
 #include <font/gfxFont.h>
 #include <font/sysfont.h>
+#include <font/gpp_font.h>
 
 
 #include <gfx/SDL_gfxPrimitives.h>

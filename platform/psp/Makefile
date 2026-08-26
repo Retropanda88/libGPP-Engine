@@ -1,4 +1,7 @@
-# === libGPP-Engine — psp ===
+# ===========================================================================
+#           Makefile – PSP Backend for libGPP-Engine (TEST MODE)
+# ===========================================================================
+
 PSPDEV ?= /usr/local/PSPDev
 PSPSDK ?= $(PSPDEV)/psp/sdk
 
@@ -11,27 +14,36 @@ FIXUP    ?= psp-fixup-imports
 STRIP    ?= psp-strip
 RM       ?= rm -f
 
-# Flags
-CFLAGS   := -O3 -G0 -Wall -DPSP_BUILD -I$(PSPSDK)/include -I../../include -I../../src
-CFLAGS +=
-CXXFLAGS := $(CFLAGS) -fno-exceptions -fno-rtti
-LDFLAGS  := -L$(PSPSDK)/lib
+# Paths (Aseguramos la barra diagonal / al final)
+ROOT_DIR    := ../../
+SRCDIR      := $(ROOT_DIR)src
+INC_DIR     := $(ROOT_DIR)include
+TESTDIR     := $(ROOT_DIR)tests/test_engine
+NES_LIB_DIR := $(ROOT_DIR)nes/lib/psp/
 
-# Paths
-SRCDIR  := ../../src
-TESTDIR := ../../tests/test_engine
-OBJDIR  := obj
-BINDIR  := bin
+OBJDIR      := obj
+BINDIR      := bin
+
+# Flags (Inyectamos la cabecera de la subcarpeta nes/src y el TESTDIR para los .h de pruebas)
+CFLAGS   := -O3 -G0 -Wall -DPSP_BUILD -I$(PSPSDK)/include -I$(INC_DIR) -I$(SRCDIR) -I$(ROOT_DIR)nes/src -I$(TESTDIR)
+CXXFLAGS := $(CFLAGS) -fno-exceptions -fno-rtti
+
+# LDFLAGS: Mantenemos la ruta de librerías del SDK
+LDFLAGS  := -L$(PSPSDK)/lib
 
 TARGET_BASENAME := test_psp
 TARGET_ELF      := $(BINDIR)/$(TARGET_BASENAME).elf
 SFO_FILE        := $(BINDIR)/PARAM.SFO
 EBOOT_FILE      := $(BINDIR)/EBOOT.PBP
 
-# ensure dirs
+# Ensure dirs
 $(shell mkdir -p $(OBJDIR) $(BINDIR))
 
-# collect sources (find, with simple fallback for MSYS1)
+# ---------------------------------------------------------------------------
+#  1. RECOLECTAR FUENTES (MOTOR + PRUEBAS AUTOMÁTICAS)
+# ---------------------------------------------------------------------------
+
+# Fuentes del MOTOR
 SRC := $(shell find $(SRCDIR) -type f \( -name "*.c" -o -name "*.cpp" \) 2>/dev/null)
 ifeq ($(strip $(SRC)),)
   SUBDIRS := $(shell ls -1 $(SRCDIR) 2>/dev/null)
@@ -39,23 +51,40 @@ ifeq ($(strip $(SRC)),)
   SRC += $(foreach d,$(SUBDIRS),$(wildcard $(SRCDIR)/$(d)/*.c) $(wildcard $(SRCDIR)/$(d)/*.cpp))
 endif
 
-TEST_MAIN := $(TESTDIR)/main.cpp
+# Fuentes de las PRUEBAS
+TEST_SRC := $(shell find $(TESTDIR) -type f \( -name "*.c" -o -name "*.cpp" \) 2>/dev/null)
+ifeq ($(strip $(TEST_SRC)),)
+  TEST_SUBDIRS := $(shell ls -1 $(TESTDIR) 2>/dev/null)
+  TEST_SRC := $(wildcard $(TESTDIR)/*.c) $(wildcard $(TESTDIR)/*.cpp)
+  TEST_SRC += $(foreach d,$(TEST_SUBDIRS),$(wildcard $(TESTDIR)/$(d)/*.c) $(wildcard $(TESTDIR)/$(d)/*.cpp))
+endif
 
-# map sources -> objects (keeps subdir structure under obj/)
-OBJS := $(patsubst $(SRCDIR)/%, $(OBJDIR)/%, $(SRC:.cpp=.o))
-OBJS := $(OBJS:.c=.o)
-OBJS += $(OBJDIR)/test_engine.o
+# ---------------------------------------------------------------------------
+#  2. MAPEAR FUENTES A OBJETOS
+# ---------------------------------------------------------------------------
 
-# Libraries (order is important)
+# Objetos del MOTOR (van a obj/src/...)
+OBJS_ENGINE := $(patsubst $(SRCDIR)/%, $(OBJDIR)/src/%, $(SRC:.cpp=.o))
+OBJS_ENGINE := $(OBJS_ENGINE:.c=.o)
+
+# Objetos de las PRUEBAS (van a obj/tests/...)
+OBJS_TEST := $(patsubst $(TESTDIR)/%, $(OBJDIR)/tests/%, $(TEST_SRC:.cpp=.o))
+OBJS_TEST := $(OBJS_TEST:.c=.o)
+
+# Juntamos todos los objetos para el Linker
+OBJS := $(OBJS_ENGINE) $(OBJS_TEST)
+
+# Libraries (Inyectamos la ruta directa del .a para evitar fallos de rutas mixtas en Windows)
 LIBS := \
+    $(NES_LIB_DIR)libnes.a \
     -lSDL_image -lSDL \
     -lpng -ljpeg -lz \
     -lpspaudio -lpspirkeyb -lpsppower -lpsphprm \
     -lpspgu -lpspctrl -lpspge \
     -lpspdebug -lpspdisplay \
-    -lpspsdk -lstdc++\
+    -lpspsdk -lstdc++ \
     -lc -lm \
-    -lpspuser\
+    -lpspuser \
     -lpspkernel
 
 # Rules
@@ -65,22 +94,31 @@ all: eboot
 
 elf: $(TARGET_ELF)
 
-# compile C++
-$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+# ---------------------------------------------------------------------------
+#  3. REGLAS DE COMPILACIÓN
+# ---------------------------------------------------------------------------
+
+# Compilar C++ del MOTOR
+$(OBJDIR)/src/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(PSP_CXX) $(CXXFLAGS) -c $< -o $@
 
-# compile C
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+# Compilar C del MOTOR
+$(OBJDIR)/src/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
 	$(PSP_CC) $(CFLAGS) -c $< -o $@
 
-# test main
-$(OBJDIR)/test_engine.o: $(TEST_MAIN)
+# Compilar C++ de las PRUEBAS
+$(OBJDIR)/tests/%.o: $(TESTDIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(PSP_CXX) $(CXXFLAGS) -c $< -o $@
 
-# link with psp-gcc (IMPORTANT)
+# Compilar C de las PRUEBAS
+$(OBJDIR)/tests/%.o: $(TESTDIR)/%.c
+	@mkdir -p $(dir $@)
+	$(PSP_CC) $(CFLAGS) -c $< -o $@
+
+# Enlazar con psp-gcc
 $(TARGET_ELF): $(OBJS)
 	@echo "Linking ELF -> $@"
 	$(PSP_CC) $(LDFLAGS) -o $@ $(filter %,$(OBJS)) $(LIBS)
@@ -105,7 +143,6 @@ $(EBOOT_FILE): $(TARGET_ELF) $(SFO_FILE)
         NULL
 	-$(RM) $(TARGET_ELF)_strip.elf
 
-
 eboot: $(EBOOT_FILE)
 
 clean:
@@ -114,5 +151,8 @@ clean:
 print-vars:
 	@echo "PSPSDK = $(PSPSDK)"
 	@echo "SRCDIR = $(SRCDIR)"
-	@echo "Found SRC files:"; echo $(SRC)
-	@echo "OBJ files to build:"; echo $(OBJS)
+	@echo "TESTDIR = $(TESTDIR)"
+	@echo "NES_LIB_DIR = $(NES_LIB_DIR)"
+	@echo "Found MOTOR SRC files:"; echo $(SRC)
+	@echo "Found TEST SRC files:"; echo $(TEST_SRC)
+	@echo "All OBJ files to build:"; echo $(OBJS)

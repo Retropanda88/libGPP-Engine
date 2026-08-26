@@ -12,6 +12,7 @@
 #include <gfx/SDL_gfxPrimitives.h>
 #include <video/video.h>
 #include <engine/types.h>
+#include <filesystem/fs.h>
 #include <math.h>
 #include <video/pixel.h>
 
@@ -20,24 +21,78 @@
 #define F1 (1 << FP)
 
 extern SDL_Surface *vram;
+extern u16 *fb;
 
 /* --------------------------------------------------------- */
 /* load_img FIX */
 /* --------------------------------------------------------- */
 SDL_Surface *load_img(const char *file)
 {
-	SDL_Surface *raw = IMG_Load(file);
-	if (!raw)
-	{
-		printf("IMG_Load error: %s\n", SDL_GetError());
-		return NULL;
-	}
+    // 1. Abrir el archivo usando tu capa FS
+    FS_FILE *fp = fs_open(file, "rb");
+    if (!fp)
+    {
+        printf("Error: no se pudo abrir la imagen %s\n", file);
+        return NULL;
+    }
 
-	SDL_Surface *fmt = SDL_DisplayFormat(raw);
-	SDL_FreeSurface(raw);		/* FIX fuga */
-	return fmt;
+    // 2. Obtener el tamaño del archivo usando fs_seek al final
+    fs_seek(fp, 0, FS_SEEK_END);
+    u32 size = fs_tell(fp);
+    fs_seek(fp, 0, FS_SEEK_SET); // Regresar al inicio
+
+    if (size == 0)
+    {
+        printf("Error: archivo de imagen vacío o inválido %s\n", file);
+        fs_close(fp);
+        return NULL;
+    }
+
+    // 3. Reservar memoria temporal para el contenido comprimido del archivo (PNG/JPG)
+    void *buffer = malloc(size);
+    if (!buffer)
+    {
+        printf("Error: memoria insuficiente para cargar la imagen %s (%u bytes)\n", file, size);
+        fs_close(fp);
+        return NULL;
+    }
+
+    // 4. Leer todo el archivo con tu función fs_read
+    u32 readBytes = fs_read(buffer, 1, size, fp);
+    fs_close(fp); // Ya tenemos los datos en RAM, cerramos el fichero
+
+    if (readBytes != size)
+    {
+        printf("Error: lectura incompleta de la imagen %s\n", file);
+        free(buffer);
+        return NULL;
+    }
+
+    // 5. Crear un SDL_RWops en memoria a partir del búfer leído
+    SDL_RWops *rw = SDL_RWFromMem(buffer, size);
+    if (!rw)
+    {
+        printf("Error SDL_RWFromMem: %s\n", SDL_GetError());
+        free(buffer);
+        return NULL;
+    }
+
+    // 6. Cargar la imagen usando SDL_image desde la memoria (el RWops se libera automáticamente si se indica o lo manejamos)
+    SDL_Surface *raw = IMG_Load_RW(rw, 1 /* freesrc = 1 libera el RWops automáticamente */);
+    
+    // El buffer ya puede liberarse porque IMG_Load_RW copia los datos decodificados a la superficie
+    free(buffer);
+
+    if (!raw)
+    {
+        printf("IMG_Load_RW error: %s\n", SDL_GetError());
+        return NULL;
+    }
+
+    SDL_Surface *fmt = SDL_DisplayFormat(raw);
+    SDL_FreeSurface(raw);        /* FIX fuga */
+    return fmt;
 }
-
 /* --------------------------------------------------------- */
 int apply_transparency(SDL_Surface * src, u8 r, u8 g, u8 b)
 {

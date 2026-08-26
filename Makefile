@@ -3,8 +3,7 @@
 #
 
 # Plataformas soportadas
-#PLATFORMS := pc gc ps2 psp android
-PLATFORMS :=  gc ps2 psp 
+PLATFORMS := nes gc ps2 psp 
 
 # Mensaje por defecto
 help:
@@ -12,20 +11,14 @@ help:
 	@echo "  make <plataforma>"
 	@echo ""
 	@echo "Plataformas disponibles:"
-	@echo "  pc        Compila para PC"
-	@echo "  gc        Compila para GameCube"
-	@echo "  ps2       Compila para PlayStation 2"
-	@echo "  psp       Compila para PSP"
-	@echo "  android   Compila para Android"
+	@echo "  gc         Compila para GameCube"
+	@echo "  ps2        Compila para PlayStation 2"
+	@echo "  psp        Compila para PSP"
+	@echo "  nes        Compila la librería NES (Multi-plataforma)"
 	@echo ""
 	@echo "Ejemplo:"
-	@echo "  make pc"
 	@echo "  make gc"
-
-# Plataforma PC
-#pc:
-#	@echo "=== Compilando libGPP-Engine para PC ==="
-#	$(MAKE) -C platform/pc
+	@echo "  make nes"
 
 # GameCube
 gc:
@@ -45,17 +38,19 @@ ps2-reset:
 	@echo "=== Reset PS2 ==="
 	$(MAKE) -C platform/ps2 reset
 
-
-
 # PSP
 psp:
 	@echo "=== Compilando libGPP-Engine para PSP ==="
 	$(MAKE) -C platform/psp
 
-# Android
-#android:
-#	@echo "=== Compilando libGPP-Engine para Android ==="
-#	$(MAKE) -C platform/android
+# Nintendo NES (Compila las variantes de la librería)
+nes:
+	@echo "=== Compilando Librería NES para PS2 ==="
+	$(MAKE) -C nes -f Makefile.ps2
+	@echo "=== Compilando Librería NES para PSP ==="
+	$(MAKE) -C nes -f Makefile.psp
+	@echo "=== Compilando Librería NES para GameCube ==="
+	$(MAKE) -C nes -f Makefile.gc
 
 # Compilar todo
 all:
@@ -66,10 +61,15 @@ all:
 
 # Limpiar todos los builds
 clean:
+	@echo "=== Limpiando todos los builds ==="
 	rm -rf build/*
 	rm -rf bin/*
-	#$(MAKE) -C platform/android clean
-	#$(MAKE) -C platform/pc clean
-	$(MAKE) -C platform/ps2 clean
 	$(MAKE) -C platform/gamecube clean
+	$(MAKE) -C platform/ps2 clean
 	$(MAKE) -C platform/psp clean
+	@echo "=== Limpiando sub-librerías NES ==="
+	$(MAKE) -C nes -f Makefile.ps2 clean
+	$(MAKE) -C nes -f Makefile.psp clean
+	$(MAKE) -C nes -f Makefile.gc clean
+
+.PHONY: help gc ps2 ps2-run ps2-reset psp nes all clean

@@ -1,260 +1,434 @@
 #include <engine/engine.h>
 #include <input/Input.h>
-#include <audio/mixer.h>
-#include <audio/sample.h>
-#include <font/gfxFont.h>
-#include <font/sysfont.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <font/gpp_font.h>
 
-#include <system/gpp_time.h>
+#define MAX_COMPONENTS 20
+//#define TARGET_FPS 10
+#define TARGET_FPS 60
 
-// 1. Cabeceras de UI y Gestor de Layout HUD unificado
-#include "interfaces.h" 
-#include "layout_mgr.h"
+#define DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 
-// 2. Cabeceras de los módulos de pruebas nativos de la Suite
-#include "test_graficos.h"
-#include "test_audio.h"
+// --- Definición de Colores (ARGB de 32 bits) ---
+#define COLOR_WHITE       0xFFFFFFFF
+#define COLOR_CYAN        0xFF00FFFF
+#define COLOR_LIGHT_GRAY  0xFFDCDCDC
+#define COLOR_BLACK       0xFF000000
 
-// ========================================================================
-// VARIABLES GLOBALES (Definición real en memoria para el Linker)
-// ========================================================================
-extern SDL_Surface *logic;
-gfxFont font;
+// Tablas de búsqueda para 360 grados
+float sinTable[360];
+float cosTable[360];
 
-// Definiciones de Audio (Buscadas por test_audio.h y la UI)
+// Función auxiliar para convertir colores de 32 bits (ARGB) a 16 bits (RGB565) de la PS2
+inline Uint16 RGB888_to_RGB565(uint8_t r, uint8_t g, uint8_t b) {
+    return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+}
+
+// Sobrecarga aceptando un Uint32 (ARGB)
+inline Uint16 Color32To16(uint32_t color32) {
+    uint8_t r = (color32 >> 16) & 0xFF;
+    uint8_t g = (color32 >> 8) & 0xFF;
+    uint8_t b = color32 & 0xFF;
+    return RGB888_to_RGB565(r, g, b);
+}
+
+typedef enum
+{ TYPE_PANEL, TYPE_LABEL } ComponentType;
+
+typedef struct UIComponent
+{
+    int16_t x, y;
+    int16_t base_x, base_y;
+    int angle; 
+    bool isFloating;
+    struct UIComponent *parent;
+    ComponentType type;
+    void (*drawFunc) (struct UIComponent *);
+
+    union
+    {
+        SDL_Surface *surface;
+        struct
+        {
+            char text[128];
+            int fontSize;
+            uint32_t color; 
+            GPP_Font *customFont; // Puntero opcional para usar una fuente específica por etiqueta
+        } label;
+    } data;
+} UIComponent;
+
+UIComponent uiPool[MAX_COMPONENTS];
+int componentCount = 0;
+
+// Fuentes del sistema
+GPP_Font font(FONT_62, 16, Color32To16(COLOR_WHITE));         // Fuente principal de la UI 57
+GPP_Font fontTitle(FONT_45, 14, Color32To16(COLOR_WHITE));    // Fuente secundaria para el título de la PS2 45
+
+static int isDone = 0;
+SDL_Surface *iconSheet = NULL;  
+
+// --- Sistema de Audio ---
 Cmixer mixer;
-int global_volume = 64;
-AudioList musicList;
-AudioList sfxList;
-CSample* sfxPreloadedBank = NULL;
+CSample sndMove;
+CSample sndSelect;
 
-// Definiciones de Gráficos (Buscadas por test_graficos.h y la UI)
-SDL_Surface* surf_gradientes[4] = {NULL, NULL, NULL, NULL};
-SDL_Surface* surf_mix[4]        = {NULL, NULL, NULL, NULL};
+// Variables de estado para el control de navegación del menú
+int currentSelectedIndex = 0;
 
-// Variables de Control del Marquee Deslizante Inferior
-float marqueeX = 320.0f;
-const char *infoText = "[A] SELECT   [B] BACK   [X] OPTIONS   -   GPP-ENGINE TEST SUITE NATIVA";
+// Variables de control para los flancos de botones
+int a_l = 0;
+int x_l = 0;
 
-// Reloj de Sistema y Contexto de la UI
-GPP_DateTime systemClock;
-Uint32 lastClockUpdate = 0;
-UINgContext uiContext = { FOCUS_CATEGORIES, 0, 0, 0, 0 };
+// Variables de auto-repetición
+int navRepeatTimer = 0;
+#define NAV_INITIAL_DELAY 10  
+#define NAV_REPEAT_INTERVAL 3 
 
-// ========================================================================
-// CAPA DE COMPATIBILIDAD DE ASSETS NATIVOS (Carga & Escalado)
-// ========================================================================
-typedef struct icon_t { SDL_Surface *icon; } icon_t;
+const char *itemDescriptions[] = {
+    "System main dashboard and overview.",
+    "Run hardware, video and peripheral diagnostics.",
+    "Launch compatible emulators and ROM files.",
+    "Audio player and hardware test tones (44.1kHz).",
+    "Manager and viewer for stored image assets.",
+    "System file explorer and storage manager.",
+    "Detailed system information, specs, and credits."
+};
 
-icon_t *quickLoad(SDL_Surface * sheet, int x, int y, int w, int h, float zoom) {
-	icon_t *temp = (icon_t *) malloc(sizeof(icon_t));
-	if (!temp) return NULL;
-	temp->icon = cut_surface(sheet, x, y, w, h);
-	SDL_Surface *scaled = rotozoom_create(temp->icon, 0.0f, zoom);
-	SDL_FreeSurface(temp->icon);
-	temp->icon = scaled;
-	return temp;
-}
-
-void cargar_listas_fijas() {
-    FS_DIR dir; FS_DIRENT ent; char pathBuffer[256];
-    musicList.count = 0; musicList.selected = 0; musicList.scroll = 0; musicList.names = NULL;
-    sfxList.count = 0;   sfxList.selected = 0;   sfxList.scroll = 0;   sfxList.names = NULL;
-
-    if (fs_opendir(&dir, "music") == 0) {
-        int totalFiles = 0;
-        while (fs_readdir(&dir, &ent) == 0) { if (!ent.is_dir && strstr(ent.name, ".wav")) totalFiles++; }
-        fs_closedir(&dir);
-        if (totalFiles > 0) {
-            musicList.count = totalFiles;
-            musicList.names = (char (*)[MAX_NAME_LEN])malloc(totalFiles * MAX_NAME_LEN);
-            if (musicList.names != NULL) {
-                memset(musicList.names, 0, totalFiles * MAX_NAME_LEN);
-                if (fs_opendir(&dir, "music") == 0) {
-                    int index = 0;
-                    while (fs_readdir(&dir, &ent) == 0 && index < totalFiles) {
-                        if (!ent.is_dir && strstr(ent.name, ".wav")) { strncpy(musicList.names[index], ent.name, MAX_NAME_LEN - 1); index++; }
-                    }
-                    fs_closedir(&dir);
-                }
-            }
-        }
-    }
-    if (fs_opendir(&dir, "sfx") == 0) {
-        int totalFiles = 0;
-        while (fs_readdir(&dir, &ent) == 0) { if (!ent.is_dir && strstr(ent.name, ".wav")) totalFiles++; }
-        fs_closedir(&dir);
-        if (totalFiles > 0) {
-            sfxList.count = totalFiles;
-            sfxList.names = (char (*)[MAX_NAME_LEN])malloc(totalFiles * MAX_NAME_LEN);
-            sfxPreloadedBank = new CSample[totalFiles];
-            if (sfxList.names != NULL && sfxPreloadedBank != NULL) {
-                memset(sfxList.names, 0, totalFiles * MAX_NAME_LEN);
-                if (fs_opendir(&dir, "sfx") == 0) {
-                    int index = 0;
-                    while (fs_readdir(&dir, &ent) == 0 && index < totalFiles) {
-                        if (!ent.is_dir && strstr(ent.name, ".wav")) {
-                            strncpy(sfxList.names[index], ent.name, MAX_NAME_LEN - 1);
-                            snprintf(pathBuffer, sizeof(pathBuffer), "sfx/%s", ent.name);
-                            sfxPreloadedBank[index].Load(pathBuffer);
-                            index++;
-                        }
-                    }
-                    fs_closedir(&dir);
-                }
-            }
-        }
+void initMathLUT()
+{
+    for (int i = 0; i < 360; i++)
+    {
+        sinTable[i] = sinf((float)i * DEG_TO_RAD);
+        cosTable[i] = cosf((float)i * DEG_TO_RAD);
     }
 }
 
-void inicializar_superficies_graficos() {
-    u32 negro = color_rgb(0, 0, 0), blanco = color_rgb(255, 255, 255), rojo = color_rgb(255, 0, 0), verde = color_rgb(0, 255, 0), azul = color_rgb(0, 0, 255);
-    u32 colores_gradientes[] = {blanco, rojo, verde, azul};
-    for(int i = 0; i < 4; i++) {
-        surf_gradientes[i] = create_surface(240, 30, 0);
-        if (surf_gradientes[i]) fill_horizontal_gradient(surf_gradientes[i], negro, colores_gradientes[i]);
-    }
-    u32 colores_mix[] = {rojo, verde, azul, blanco};
-    for(int i = 0; i < 4; i++) {
-        surf_mix[i] = create_surface(220, 32, 0);
-        if (surf_mix[i]) fill_horizontal_gradient(surf_mix[i], negro, colores_mix[i]);
-    }
+// --- Funciones de Dibujo ---
+void drawPanel(UIComponent * comp)
+{
+    if (comp->data.surface)
+        draw_surface(comp->data.surface, comp->x, comp->y);
 }
 
-// ========================================================================
-// CONTROL PRINCIPAL DE EJECUCIÓN (Bucle Core)
-// ========================================================================
-int main(int argc, char **argv) {
-	(void)argc; (void)argv;
-
-    // Inicialización de subsistemas nativos libGPP
-	if (Init_Sistem("GPP Pro Suite - Reploid Edition") < 0) return 1;
-	Set_Video();
+void drawLabel(UIComponent * comp)
+{
+    int drawX = comp->x;
+    int drawY = comp->y;
+    if (comp->parent)
+    {
+        drawX += comp->parent->x;
+        drawY += comp->parent->y;
+    }
     
-	Input::init();
-	font.init();
-	mixer.init(44100, 2, 2048);
+    // Si la etiqueta tiene asignada una fuente personalizada, la usamos; si no, usamos la general
+    GPP_Font *activeFont = comp->data.label.customFont ? comp->data.label.customFont : &font;
 
-	cargar_listas_fijas();
-	inicializar_superficies_graficos();
+    activeFont->setSize(comp->data.label.fontSize);
+    activeFont->setColor(Color32To16(comp->data.label.color));
+    activeFont->drawText(drawX, drawY, comp->data.label.text);
+}
 
-    // Setup del temporizador y fecha del sistema
-	GPP_GetSystemDateTime(&systemClock);
-	lastClockUpdate = SDL_GetTicks();
+// --- Animación ---
+void updateAnimations()
+{
+    for (int i = 0; i < componentCount; i++)
+    {
+        if (uiPool[i].isFloating)
+        {
+            uiPool[i].angle = (uiPool[i].angle + 12) % 360;
 
-    // Efectos de sonido de la interfaz de usuario
-	CSample sfxMove, sfxPush;
-	sfxMove.Load("sfx/button.wav");
-	sfxPush.Load("sfx/push.wav");
+            float sinVal = sinTable[uiPool[i].angle];
+            float cosVal = cosTable[uiPool[i].angle];
 
-    // Carga de la Spritesheet de íconos de la suite
-	SDL_Surface *sheet = load_img("gfx/icon.png");
-	startup();
-	
-	mixer.setMasterVolume(global_volume);
-	mixer.playMusic("music/music.wav", true);
-	
-    // Extracción de sub-surfaces con escalado (Formato optimizado para el Grid derecho)
-	icon_t *icons[8];
-	icons[0] = quickLoad(sheet, 35, 5, 190, 200, 0.12);
-	icons[1] = quickLoad(sheet, 250, 5, 190, 200, 0.12);
-	icons[2] = quickLoad(sheet, 460, 5, 190, 200, 0.12);
-	icons[3] = quickLoad(sheet, 680, 5, 190, 200, 0.12);
-	icons[4] = quickLoad(sheet, 250, 230, 190, 210, 0.12);
-	icons[5] = quickLoad(sheet, 35, 230, 190, 210, 0.12);
-	icons[6] = quickLoad(sheet, 460, 240, 190, 200, 0.12);
-	icons[7] = quickLoad(sheet, 680, 240, 190, 200, 0.12);
-
-    // Mapeo del árbol jerárquico del menú Reploid
-	CategoryNode menu_tree[MAX_CATEGORIES] = {
-		{ "SYSTEM",   {{"CPU Stress", icons[6]->icon, NULL, STATUS_READY, 0.0f}, {"Credits", icons[7]->icon, NULL, STATUS_READY, 0.0f}}, 2 },
-		{ "AUDIO",    {{"Audio Core", icons[1]->icon, run_audio_test, STATUS_READY, 0.0f}}, 1 },
-		{ "VIDEO",    {{"Graphics", icons[0]->icon, run_graficos_test, STATUS_READY, 0.0f}, {"Sprites", icons[4]->icon, NULL, STATUS_READY, 0.0f}, {"Gfx Engine", icons[5]->icon, NULL, STATUS_READY, 0.0f}}, 3 },
-		{ "CONTROLS", {{"Input Pad", icons[2]->icon, NULL, STATUS_READY, 0.0f}}, 1 }
-	};
-	int total_active_categories = 4;
-
-	int d_l = 0, u_l = 0, l_l = 0, r_l = 0, a_l = 0;
-	bool running = true; 
-
-	while (running) {
-		Input::update();
-		bool d = Input::isPressed(0, BUTTON_DOWN), u = Input::isPressed(0, BUTTON_UP);
-		bool l = Input::isPressed(0, BUTTON_LEFT), r = Input::isPressed(0, BUTTON_RIGHT), a = Input::isPressed(0, BUTTON_A);
-
-		bool press_d = (d && !d_l), press_u = (u && !u_l), press_l = (l && !l_l), press_r = (r && !r_l), press_a = (a && !a_l);
-		d_l = d; u_l = u; l_l = l; r_l = r; a_l = a;
-
-        // Actualizar estados del reloj interno cada segundo
-        Uint32 currentTicks = SDL_GetTicks();
-        if (currentTicks - lastClockUpdate >= 1000) {
-            GPP_GetSystemDateTime(&systemClock);
-            lastClockUpdate = currentTicks;
+            uiPool[i].y = uiPool[i].base_y + (int)(4.0f * sinVal);
+            uiPool[i].x = uiPool[i].base_x + (int)(2.0f * cosVal);
         }
+    }
+}
 
-        // Lógica de navegación adaptativa
-		actualizar_navegacion_ui(uiContext, press_u, press_d, press_l, press_r, press_a, total_active_categories, menu_tree, &sfxMove, global_volume);
+void drawMenu()
+{
+    if (!iconSheet)
+        return;
 
-		CategoryNode* active_cat = &menu_tree[uiContext.selected_category];
+    const char *items[] =
+        { "[HOME]", "[TESTS]", "[EMUS]", "[MUSIC]", "[IMAGES]", "[FILES]", "[INFO]" };
+
+    int startX = 5;
+    int startY = 90;
+    int spacingY = 50;          
+
+    for (int i = 0; i < 7; i++)
+    {
+        int size_icon = 30;
+        draw_surface_region(iconSheet, i * size_icon, 0, size_icon, size_icon + 10, startX, startY + (i * spacingY));
         
-        // Ejecución de callbacks de test al pulsar botón A
-		if (uiContext.focus == FOCUS_MAIN_GRID && press_a) {
-			int t_idx = uiContext.selected_test_in_category;
-			if (active_cat->sub_tests[t_idx].action != NULL) {
-				mixer.playChannel(&sfxPush, 0, global_volume);
-				active_cat->sub_tests[t_idx].status = STATUS_RUNNING;
-				active_cat->sub_tests[t_idx].action();
-				active_cat->sub_tests[t_idx].status = STATUS_PASS;
-				mixer.setMasterVolume(global_volume); // Restaurar audio tras el test
-			}
-		}
+        uint32_t col = (i == currentSelectedIndex) ? COLOR_CYAN : COLOR_WHITE;
+        int fontSize = (i == currentSelectedIndex) ? 20 : 16;
 
-        // --- PIPELINE DE RENDERIZADO VISUAL ---
-        // 1. Limpieza con gradiente de fondo (Azul profundo de baja luminancia)
-		fill_vertical_gradient(logic, color_rgb(8, 12, 22), color_rgb(20, 30, 50));
-
-        // 2. Renderizado del HUD Superior Unificado (Status e información de Línea Magenta)
-        render_unified_top_bar(logic, systemClock, marqueeX, infoText);
-
-        // 3. Renderizado de Paneles Modulares Simétricos
-		render_left_panel(logic, uiContext, menu_tree, total_active_categories, systemClock.text);
-		render_main_grid(logic, uiContext, active_cat);
-
-        // 4. Renderizado de la Consola Inferior Deslizante (Marquee)
-        render_unified_marquee(logic, marqueeX, infoText);
-
-        // 5. Presentación de frame y sincronización nativa a 60 FPS
-		Render();
-		Fps_sincronizar(60);
-	}
-    // --- LIBERACIÓN DE MEMORIA Y CLEANUP ---
-    SDL_FreeSurface(sheet);
-    for (int i = 0; i < 8; i++) { 
-        if (icons[i]) { 
-            if (icons[i]->icon) SDL_FreeSurface(icons[i]->icon); 
-            free(icons[i]); 
-        } 
+        font.setSize(fontSize);
+        font.setColor(Color32To16(col));
+        font.drawText(startX + 30, startY + (i * spacingY) + 10, items[i]);
     }
+
+    for (int i = 0; i < componentCount; i++)
+    {
+        if (uiPool[i].isFloating)
+        {
+            int textX = uiPool[i].x + 10;
+            int textY = uiPool[i].y + 35; 
+            
+            font.setSize(12);
+            font.setColor(Color32To16(COLOR_LIGHT_GRAY)); 
+            font.drawText(textX, textY, itemDescriptions[currentSelectedIndex]);
+            break;
+        }
+    }
+}
+
+void addPanel(int x, int y, const char *file, u8 alpha, bool floating)
+{
+    if (componentCount >= MAX_COMPONENTS)
+        return;
+    UIComponent *c = &uiPool[componentCount++];
+    c->type = TYPE_PANEL;
+    c->base_x = x;
+    c->base_y = y;
+    c->x = x;
+    c->y = y;
+    c->isFloating = floating;
+    c->angle = rand() % 360; 
+    c->parent = NULL;
     
-    if (musicList.names) {
-        free(musicList.names);
-    }
-    if (sfxList.names) {
-        free(sfxList.names);
-    }
-    if (sfxPreloadedBank) {
-        delete[] sfxPreloadedBank;
-    }
+    c->data.surface = load_img(file);
+    if (c->data.surface)
+        apply_transparency(c->data.surface, 255, 0, 255);
+    apply_alpha(c->data.surface, alpha);
+    c->drawFunc = drawPanel;
+}
+
+void addLabelCustom(UIComponent * parent, int relX, int relY, const char *text, int size, uint32_t color, GPP_Font *customFont)
+{
+    if (componentCount >= MAX_COMPONENTS)
+        return;
+    UIComponent *c = &uiPool[componentCount++];
+    c->type = TYPE_LABEL;
+    c->x = relX;
+    c->y = relY;
+    c->parent = parent;
+    c->isFloating = false;
+    c->angle = 0; 
     
-    for (int i = 0; i < 4; i++) { 
-        if (surf_gradientes[i]) SDL_FreeSurface(surf_gradientes[i]); 
-        if (surf_mix[i])        SDL_FreeSurface(surf_mix[i]); 
+    strncpy(c->data.label.text, text, 127);
+    c->data.label.fontSize = size;
+    c->data.label.color = color;
+    c->data.label.customFont = customFont;
+    
+    c->drawFunc = drawLabel;
+}
+
+void addLabel(UIComponent * parent, int relX, int relY, const char *text, int size, uint32_t color)
+{
+    addLabelCustom(parent, relX, relY, text, size, color, NULL);
+}
+
+bool initInterface()
+{
+    font.setSize(16);
+    font.setColor(Color32To16(COLOR_WHITE)); 
+    font.drawText(200, 200, "NOW LOADING...");
+    Render();
+
+    addPanel(0, 0, "menu/background.png", 255, false);
+    addPanel(2, -2, "menu/pandlaLab.png", 255, false);
+
+    iconSheet = load_img("menu/icons.png");
+    if (iconSheet)
+        apply_transparency(iconSheet, 255, 0, 255);
+
+    addPanel(180, 80, "menu/textura1.png", 150, false);
+    UIComponent *p1 = &uiPool[componentCount - 1];
+    addPanel(0, 80, "menu/textura2.png", 255, false);
+    addPanel(185, 320, "menu/textura3.png", 255, true);
+    UIComponent *p3 = &uiPool[componentCount - 1];
+    addPanel(470, 2, "menu/textura4.png", 105, false);
+    UIComponent *p2 = &uiPool[componentCount - 1];
+
+    addLabel(p1, 15, 20, "Audio: Test-Tones (44.1khz, 16bits)", 16, COLOR_WHITE);
+    addLabel(p1, 15, 50, "Input: [D-PAD: OK, X/O: OK]", 16, COLOR_WHITE);
+    
+    // Aquí usamos addLabelCustom para asignarle la fuente 'fontTitle' (FONT_62) manteniendo el tamaño 14
+    addLabelCustom(p2, 1, 42, "SYSTEM:Playstation 2", 10, COLOR_WHITE, &fontTitle);
+
+    if (!sndSelect.Load("menu/sfx/select.wav"))
+    {
+        printf("Aviso: No se pudo cargar sfx/select.wav\n");
     }
 
+    if (!sndMove.Load("menu/sfx/move.wav"))
+    {
+        printf("Aviso: No se pudo cargar sfx/move.wav\n");
+    }
 
+    return true;
+}
 
-	return 0;
+int main(int argc, char **argv)
+{
+    memset(uiPool, 0, sizeof(uiPool));
+
+    if (Init_Sistem("panda lab") < 0)
+        return -1;
+
+    if (Set_Video(320,240) < 0)
+        return -1;
+    
+    startup();
+
+    if (Set_Video(640,480) < 0)
+        return -1;
+
+    Input::init();
+    initMathLUT();
+
+    mixer.init(44100, 2, 512);
+
+    initInterface();
+    mixer.setMusicVolume(60);
+    mixer.playMusic("menu/music/background.wav", true);
+
+    int down_l = 0;
+    int up_l = 0;
+
+    while (!isDone)
+    {
+        Input::update();
+
+        int downPressed = Input::isDown(0, BUTTON_DOWN);
+        int upPressed   = Input::isDown(0, BUTTON_UP);
+        int aPressed    = Input::isDown(0, BUTTON_A);
+        
+        int xPressed    = Input::isDown(0, BUTTON_X);
+        int press_x     = (xPressed && !x_l);
+        x_l = xPressed;
+
+        int press_a  = (aPressed && !a_l);
+        a_l = aPressed;
+
+        int press_down = (downPressed && !down_l);
+        int press_up   = (upPressed && !up_l);
+        down_l = downPressed;
+        up_l = upPressed;
+
+        bool moveDown = false;
+        bool moveUp = false;
+
+        if (press_down)
+        {
+            moveDown = true;
+            navRepeatTimer = 1;
+        }
+        else if (press_up)
+        {
+            moveUp = true;
+            navRepeatTimer = 1;
+        }
+        else if (downPressed)
+        {
+            navRepeatTimer++;
+            if (navRepeatTimer > NAV_INITIAL_DELAY)
+            {
+                if ((navRepeatTimer - NAV_INITIAL_DELAY) % NAV_REPEAT_INTERVAL == 0)
+                {
+                    moveDown = true;
+                }
+            }
+        }
+        else if (upPressed)
+            {
+            navRepeatTimer++;
+            if (navRepeatTimer > NAV_INITIAL_DELAY)
+            {
+                if ((navRepeatTimer - NAV_INITIAL_DELAY) % NAV_REPEAT_INTERVAL == 0)
+                {
+                    moveUp = true;
+                }
+            }
+        }
+        else
+        {
+            navRepeatTimer = 0;
+        }
+
+        if (press_x)
+        {
+            mixer.playMusic("menu/music/background.wav", true);
+        }
+
+        if (moveDown)
+        {
+            currentSelectedIndex++;
+            if (currentSelectedIndex > 6)
+                currentSelectedIndex = 0; 
+            
+            if (sndMove.getData() != NULL) {
+                mixer.playChannel(&sndMove, false, 100, -1);
+            }
+        }
+        if (moveUp)
+        {
+            currentSelectedIndex--;
+            if (currentSelectedIndex < 0)
+                currentSelectedIndex = 6; 
+            
+            if (sndMove.getData() != NULL) {
+                mixer.playChannel(&sndMove, false, 100, -1);
+            }
+        }
+
+        if (press_a)
+        {
+            if (sndSelect.getData() != NULL) {
+                mixer.playChannel(&sndSelect, false, 120, -1);
+            }
+        }
+
+        cls_rgb(0, 0, 0); 
+        
+        updateAnimations();
+        
+        for (int i = 0; i < componentCount; i++)
+        {
+            if (uiPool[i].drawFunc)
+                uiPool[i].drawFunc(&uiPool[i]);
+        }
+        
+        drawMenu(); 
+        
+        Render();
+        Fps_sincronizar(TARGET_FPS);
+    }
+
+    sndMove.close();
+    sndSelect.close();
+
+    if (iconSheet)
+        SDL_FreeSurface(iconSheet);
+        
+    for (int i = 0; i < componentCount; i++)
+    {
+        if (uiPool[i].type == TYPE_PANEL && uiPool[i].data.surface)
+        {
+            SDL_FreeSurface(uiPool[i].data.surface);
+        }
+    }
+
+    off_video();
+    shoutdown_sistem();
+    return 0;
 }

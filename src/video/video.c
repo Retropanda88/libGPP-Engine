@@ -1,12 +1,11 @@
-/* 
- * libGPP-Engine - A lightweight static game engine for retro consoles.
+/* * libGPP-Engine - A lightweight static game engine for retro consoles.
  * Copyright (c) 2025 Andrés Ruiz Pérez
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 2 or version 3.
  * https://www.gnu.org/licenses/
- */
+ * */
 
 #include <stdio.h>
 #include <SDL/SDL.h>
@@ -24,17 +23,17 @@
 
 #ifdef PS2_BUILD
 #include <kernel.h>
+/* Declaración externa para evitar el warning de fs_init */
+extern int fs_init(void);
 #endif
 
 // framebuffer pointer
 SDL_Surface *vram = NULL;
 SDL_Surface *logic = NULL;
 
-#if defined(PSP_BUILD)
-u16 *fb = NULL;
-#else
-u32 *fb = NULL;
-#endif
+/* ⚡ Usamos void* aquí para evitar conflictos con la cabecera video.h 
+   y que ee-gcc compile sin importar si hereda u16 o u32 de forma externa. */
+void *fb = NULL;
 
 static u16 x_table[480];
 static u16 y_table[272];
@@ -58,21 +57,6 @@ void Scale_Init(void)
 
 /**
  * @brief Initializes the system with an optional message.
- *
- * This function performs the system initialization.
- * It takes a `msg` parameter (const char*) that may contain additional
- * information for the initialization process (for example, a configuration
- * code or a flag for a specific initialization mode).
- *
- * The exact behavior depends on how the message is used.
- *
- * @param msg Pointer to a char string that can contain relevant initialization
- *            information. It may be NULL.
- *
- * @return 0 if the initialization was successful, or a non-zero error code if it failed.
- *
- * @note This function may require system resources such as memory or previous
- *       configurations. Ensure all prerequisites are met before calling.
  */
 int Init_Sistem(const char *msg)
 {
@@ -81,12 +65,10 @@ int Init_Sistem(const char *msg)
 	PSP_SetupCallbacks();
 #endif
 
-
 #ifdef PS2_BUILD
 	printf("change thread priority for audio\n");
-   int main_id = GetThreadId();
-   ChangeThreadPriority(main_id, 72);
-
+	int main_id = GetThreadId();
+	ChangeThreadPriority(main_id, 72);
 #endif
 
 	// Inicializa SDL con video y temporizador
@@ -96,7 +78,6 @@ int Init_Sistem(const char *msg)
 		return -1;
 	}
 
-
 	// Imprime mensaje solo si no es NULL
 	if (msg)
 		printf("\n%s\n", msg);
@@ -105,7 +86,6 @@ int Init_Sistem(const char *msg)
 	fontsize(8, 8);
 
 #ifdef PS2_BUILD
-
 	/* inicializar FS primero */
 	fs_init();
 #endif
@@ -115,31 +95,17 @@ int Init_Sistem(const char *msg)
 
 /**
  * @brief Sets the video resolution.
- *
- * This function configures the video mode of the system, setting the
- * window/screen width and height in pixels.
- *
- * @param width  Screen width in pixels.
- * @param height Screen height in pixels.
- *
- * @return 0 if successful, or -1 on error.
- *
- * @note Ensure width and height are supported by the platform.
+   pasamos argumentos de ancho y alto 
  */
-int Set_Video(void)
+int Set_Video(const int w, const int h)
 {
 #if defined(PSP_BUILD)
-
 	/* Framebuffer REAL del PSP (480x272 RGB565) */
 	vram = SDL_SetVideoMode(480, 272, 16, SDL_SWSURFACE);
-
 	Scale_Init();				// inicializa tablas del escalador
-
 #else
-
-	/* Otras plataformas usan framebuffer lógico directo */
-	vram = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
-
+	/* Otras plataformas usan framebuffer lógico directo (PS2 hereda 16 bits aquí) */
+	vram = SDL_SetVideoMode(w, h, 16, SDL_SWSURFACE);
 #endif
 
 	if (!vram)
@@ -150,25 +116,19 @@ int Set_Video(void)
 
 	SDL_ShowCursor(SDL_FALSE);
 
-	/* ---------- Surface lógica SIEMPRE 320x240 ---------- */
+	/* ---------- Surface lógica ---------- */
 
-#if defined(PSP_BUILD)
-
-	logic = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,	// RGB565
+#if defined(PSP_BUILD) || defined(PS2_BUILD)
+	/* ⚡ OPTIMIZACIÓN: PS2 y PSP usan 16 bits directos sin conversión por software */
+	logic = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16,	// RGB565 nativo
 								 vram->format->Rmask, vram->format->Gmask, vram->format->Bmask, 0);
-
-	fb = (u16 *) logic->pixels;	// CORRECTO para PSP
-
 #else
-
+	/* Las demás plataformas (Android, GC, PC) conservan sus 32 bits originales */
 	logic = SDL_CreateRGBSurface(SDL_SWSURFACE,
-								 320, 240,
-								 32,
+								 w, h,
+								 16,
 								 vram->format->Rmask,
 								 vram->format->Gmask, vram->format->Bmask, vram->format->Amask);
-
-	fb = (u32 *) logic->pixels;	// CORRECTO para PS2/GC/Android
-
 #endif
 
 	if (!logic)
@@ -177,9 +137,11 @@ int Set_Video(void)
 		return -1;
 	}
 
+	// Asignamos el puntero de pixeles al fb genérico
+	fb = logic->pixels;
+
 	return 0;
 }
-
 
 void startup()
 {
@@ -197,12 +159,10 @@ void startup()
 	int alpha;
 	for (alpha = 0; alpha <= 255; alpha += 5)
 	{
-		apply_alpha(temp, alpha);
+		SDL_SetAlpha(temp, SDL_SRCALPHA, alpha);
 
 		cls();
-
 		draw_surface(temp, 0, 0);
-
 		Render();
 		Fps_sincronizar(10);
 	}
@@ -213,7 +173,6 @@ void startup()
 	{
 		cls();
 		draw_surface(temp, 0, 0);
-
 		Render();
 		Fps_sincronizar(60);
 	}
@@ -223,12 +182,10 @@ void startup()
 	// ==========================
 	for (alpha = 255; alpha >= 0; alpha -= 5)
 	{
-		apply_alpha(temp, alpha);
+		SDL_SetAlpha(temp, SDL_SRCALPHA, alpha);
 
 		cls();
-
 		draw_surface(temp, 0, 0);
-
 		Render();
 		Fps_sincronizar(10);
 	}
@@ -236,7 +193,6 @@ void startup()
 	SDL_FreeSurface(temp);
 	SDL_Delay(1000);
 }
-
 
 void Scale_320x240_to_480x272(SDL_Surface * src, SDL_Surface * dst)
 {
@@ -260,16 +216,11 @@ void Scale_320x240_to_480x272(SDL_Surface * src, SDL_Surface * dst)
 	}
 }
 
-
 /**
  * @brief Gets the current video resolution.
- *
- * @param width  Pointer where the screen width will be stored.
- * @param height Pointer where the screen height will be stored.
  */
 void get_wh_video_mode(int *width, int *height)
 {
-
 	if (!width || !height)
 		return;
 
@@ -287,8 +238,6 @@ void get_wh_video_mode(int *width, int *height)
 
 /**
  * @brief Safely shuts down the system.
- *
- * Closes all active SDL subsystems and frees resources.
  */
 void shoutdown_sistem()
 {
@@ -303,8 +252,6 @@ void shoutdown_sistem()
 
 /**
  * @brief Turns off the video mode.
- *
- * Frees the video surface and releases video-related memory.
  */
 void off_video()
 {
@@ -323,21 +270,15 @@ void off_video()
 
 /**
  * @brief Renders the framebuffer to the screen.
- *
- * Updates the display, usually called every game loop frame.
  */
 void Render(void)
 {
 #if defined(PSP_BUILD)
-
-	// Escalado software 320x240 -> 480x272
+	// Escalado software 320x240 -> 480x272 exclusivo de PSP
 	Scale_320x240_to_480x272(logic, vram);
-
 #else
-
-	// Copia directa (misma resolución)
+	// Copia directa limpia (En PS2 ahora es instantáneo al ser 16-bits contra 16-bits)
 	SDL_BlitSurface(logic, NULL, vram, NULL);
-
 #endif
 
 	SDL_Flip(vram);
@@ -345,23 +286,17 @@ void Render(void)
 
 /**
  * @brief Clears the screen (fills it with black).
- *
- * Writes 0x00000000 to every pixel in the framebuffer.
  */
 void cls()
 {
-	Uint8 *fb = (Uint8 *) logic->pixels;
+	Uint8 *pixels = (Uint8 *) logic->pixels;
 	int szScreen = logic->pitch * logic->h;
 
-	memset(fb, 0, szScreen);
+	memset(pixels, 0, szScreen);
 }
 
 /**
  * @brief Clears the screen with a specific RGB color.
- *
- * @param r Red component (0–255)
- * @param g Green component (0–255)
- * @param b Blue component (0–255)
  */
 void cls_rgb(u8 r, u8 g, u8 b)
 {
@@ -371,45 +306,35 @@ void cls_rgb(u8 r, u8 g, u8 b)
 }
 
 /**
- * @brief Creates a 32-bit ARGB color from RGB components.
- *
- * Alpha is always 255 (opaque).
- *
- * @return Pixel value in ARGB32 format.
+ * @brief Creates a color from RGB components.
  */
 u32 color_rgb(u8 r, u8 g, u8 b)
 {
 	if (!logic)
-		return;
+		return 0;
 	return SDL_MapRGB(logic->format, r, g, b);
 }
 
 /**
  * @brief Synchronizes rendering to a constant FPS.
- *
- * @param frecuencia Frame interval in milliseconds (1000/FPS)
  */
-/* void Fps_sincronizar(int frecuencia) { static int t; static int temp;
-   static int t1 = 0;
-
-   t = SDL_GetTicks(); if (t - t1 >= frecuencia) { temp = (t - t1) /
-   frecuencia; t1 += temp * frecuencia; } else { SDL_Delay(frecuencia - (t -
-   t1)); t1 += frecuencia; } } */
-
 void Fps_sincronizar(u32 frame_ms)
 {
 	static u32 last_time = 0;
-	u32 current_time = SDL_GetTicks();
-	u32 elapsed = current_time - last_time;
-
-	if (elapsed < frame_ms)
-	{
-		SDL_Delay(frame_ms - elapsed);
-		last_time += frame_ms;
+	
+	if (last_time == 0) {
+		last_time = SDL_GetTicks();
+		return;
 	}
-	else
+
+	while ((SDL_GetTicks() - last_time) < frame_ms) 
 	{
-		// Frame lento: saltamos para evitar acumulación
-		last_time = current_time;
+		SDL_Delay(1); 
+	}
+
+	last_time += frame_ms;
+
+	if ((SDL_GetTicks() - last_time) > frame_ms) {
+		last_time = SDL_GetTicks();
 	}
 }

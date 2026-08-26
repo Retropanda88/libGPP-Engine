@@ -6,7 +6,7 @@
 // Si estás en GameCube o Wii, incluimos sus cabeceras nativas
 #if defined(GC_BUILD)
 #include <ogc/lwp_watchdog.h>
-#include <ogc/rtc.h>
+//#include <ogc/rtc.h>
 #endif
 
 // Si estás en PSP

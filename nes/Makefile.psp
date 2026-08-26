@@ -1,0 +1,63 @@
+# =========================================================================
+# Makefile para PSP (PSPSDK) - libnes.a
+# =========================================================================
+
+OBJ_DIR = obj_psp
+TARGET_DIR = lib/psp
+LIB     = $(TARGET_DIR)/libnes.a
+
+PSPSDK = $(shell psp-config --pspsdk-path)
+TARGET_LIB = $(LIB)
+
+# --- Detección de todos los archivos en src/ ---
+ALL_C   = $(wildcard src/*.c)
+ALL_CPP = $(wildcard src/*.cpp)
+ALL_S   = $(wildcard src/*.S)
+
+# --- LISTA DE EXCLUSIÓN EQUILIBRADA (Excluimos expansiones, PERO COMPILAMOS nes_apu.c) ---
+EXCLUDE_SOURCES = src/nes_exsound.cpp src/nes_vrc6.cpp src/nes_vrc7.cpp \
+                  src/nes_fds.cpp src/nes_mmc5.cpp src/nes_n106.cpp \
+                  src/nes_fme7.cpp src/render_bg.cpp src/render_tile.cpp \
+                  src/render_spr.cpp src/render_spr_tile.cpp src/do_scanline.cpp \
+                  src/nes_emulate_frame.cpp src/nes_rom_correct.cpp \
+                  src/nes_set_controller.cpp src/nes_pad_command.cpp src/nes_pad_state.cpp \
+                  src/nes_set_cycles.cpp src/nes_get_cycles.cpp \
+                  src/nsf.cpp
+
+SOURCES_C   = $(filter-out $(EXCLUDE_SOURCES), $(ALL_C))
+SOURCES_CPP = $(filter-out $(EXCLUDE_SOURCES), $(ALL_CPP))
+SOURCES_S   = $(filter-out $(EXCLUDE_SOURCES), $(ALL_S))
+
+OBJS = $(patsubst src/%.c, $(OBJ_DIR)/%.o, $(SOURCES_C)) \
+       $(patsubst src/%.cpp, $(OBJ_DIR)/%.o, $(SOURCES_CPP)) \
+       $(patsubst src/%.S, $(OBJ_DIR)/%.o, $(SOURCES_S))
+
+# Flags de optimización
+CFLAGS   = -O2 -G0 -Wall
+CXXFLAGS = -O2 -G0 -Wall -fno-exceptions
+
+include $(PSPSDK)/lib/build.mak
+
+# Override de las reglas del SDK
+$(OBJ_DIR)/%.o: src/%.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: src/%.cpp
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: src/%.S
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(LIB): $(OBJS)
+	@mkdir -p $(TARGET_DIR)
+	$(AR) -cru $@ $(OBJS)
+	$(RANLIB) $@
+	@echo "=== ¡Librería PSP guardada en $@! ==="
+
+clean:
+	rm -rf $(OBJ_DIR)
+	rm -f $(LIB)
+	@echo "Limpieza de PSP completada."
