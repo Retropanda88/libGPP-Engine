@@ -27,34 +27,57 @@ CFLAGS   = -O3 -Wall -DANDROID_BUILD `sdl-config --cflags` -I$(INC_DIR) -I$(INC_
 CXXFLAGS = -O3 -Wall  -DANDROID_BUILD `sdl-config --cflags` -I$(INC_DIR) -I$(INC_DIR)/engine
 LDFLAGS  = `sdl-config --libs` -lSDL_image -lSDL_ttf
 
-# Fuentes del engine
-C_SRCS   := $(shell find $(SRC_DIR) -name "*.c")
-CPP_SRCS := $(shell find $(SRC_DIR) -name "*.cpp")
+# ====================== BÚSQUEDA DE FUENTES ======================
 
-OBJS := $(C_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o) \
-        $(CPP_SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
+# 1. Fuentes del Engine (src/)
+ENGINE_C_SRCS   := $(shell find $(SRC_DIR) -name "*.c")
+ENGINE_CPP_SRCS := $(shell find $(SRC_DIR) -name "*.cpp")
+
+# 2. Fuentes adicionales dentro del Test activo (excluyendo main.cpp para tratarlo aparte)
+TEST_EXTRA_C   := $(shell find $(TESTS_DIR)/$(TEST) -name "*.c" ! -name "main.c")
+TEST_EXTRA_CPP := $(shell find $(TESTS_DIR)/$(TEST) -name "*.cpp" ! -name "main.cpp")
+
+# Mapeo de objetos del Engine
+ENGINE_OBJS := $(ENGINE_C_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/engine/%.o) \
+               $(ENGINE_CPP_SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/engine/%.o)
+
+# Mapeo de objetos adicionales del Test (UIElement.cpp, UIText.cpp, etc.)
+TEST_OBJS := $(TEST_EXTRA_C:$(TESTS_DIR)/$(TEST)/%.c=$(BUILD_DIR)/tests/$(TEST)/%.o) \
+             $(TEST_EXTRA_CPP:$(TESTS_DIR)/$(TEST)/%.cpp=$(BUILD_DIR)/tests/$(TEST)/%.o)
+
+OBJS := $(ENGINE_OBJS) $(TEST_OBJS)
 
 # ====================== TARGETS ======================
 
 all: dirs build_objects link
 
 dirs:
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)/engine
+	@mkdir -p $(BUILD_DIR)/tests/$(TEST)
 	@mkdir -p $(BIN_DIR)
-	@mkdir -p $(dir $(MAIN_OBJ))
 
 build_objects: $(OBJS) $(MAIN_OBJ)
-	@echo ">> Engine + Test objects compiled."
+	@echo ">> Engine + Test objects (incluyendo clases UI) compilados con éxito."
 
 # Compilar .c del Engine
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+$(BUILD_DIR)/engine/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compilar .cpp del Engine
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+$(BUILD_DIR)/engine/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compilar ficheros .cpp adicionales del Test (UIElement, UIText, etc.)
+$(BUILD_DIR)/tests/$(TEST)/%.o: $(TESTS_DIR)/$(TEST)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compilar ficheros .c adicionales del Test (si los hubiera)
+$(BUILD_DIR)/tests/$(TEST)/%.o: $(TESTS_DIR)/$(TEST)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compilar main.cpp del test seleccionado
 $(MAIN_OBJ): $(MAIN_SRC)
